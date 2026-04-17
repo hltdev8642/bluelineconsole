@@ -12,6 +12,7 @@ import net.nhiroki.bluelineconsole.commandSearchers.eachSearcher.FactorCommandSe
 import net.nhiroki.bluelineconsole.commandSearchers.eachSearcher.HelpCommandSearcher;
 import net.nhiroki.bluelineconsole.commandSearchers.eachSearcher.NetUtilCommandSearcher;
 import net.nhiroki.bluelineconsole.commandSearchers.eachSearcher.PreferencesCommandSearcher;
+import net.nhiroki.bluelineconsole.commandSearchers.eachSearcher.PluginCommandSearcher;
 import net.nhiroki.bluelineconsole.commandSearchers.eachSearcher.SearchEngineCommandSearcher;
 import net.nhiroki.bluelineconsole.commandSearchers.eachSearcher.SearchEngineDefaultCommandSearcher;
 import net.nhiroki.bluelineconsole.commandSearchers.eachSearcher.URICommandSearcher;
@@ -47,6 +48,7 @@ public class CommandSearchAggregator {
         // First character is limited
         commandSearcherList.add(new CalculatorCommandSearcher());
         commandSearcherList.add(new SearchEngineCommandSearcher(context));
+        commandSearcherList.add(new PluginCommandSearcher(context));
         commandSearcherList.add(new ColorDisplayCommandSearcher());
 
         // Command searchers which may return tons candidate should comes to the last of "search result"
@@ -141,4 +143,3 @@ public class CommandSearchAggregator {
         return ret;
     }
 }
-

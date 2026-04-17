@@ -6,6 +6,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import android.content.Intent;
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
 import android.text.Editable;
@@ -83,6 +85,31 @@ public class MainActivity extends BaseWindowActivity {
         candidateListView.setAdapter(resultCandidateListAdapter);
 
         candidateListView.setOnItemClickListener((parent, view, position, id) -> resultCandidateListAdapter.invokeEvent(position, MainActivity.this));
+        candidateListView.setOnItemLongClickListener((parent, view, position, id) -> {
+            CandidateEntry candidate = resultCandidateListAdapter.getItem(position);
+            if (candidate == null) {
+                return false;
+            }
+
+            CharSequence[] actions = {
+                    getString(R.string.result_action_open),
+                    getString(R.string.result_action_copy_title)
+            };
+            new android.app.AlertDialog.Builder(MainActivity.this)
+                    .setItems(actions, (dialog, which) -> {
+                        if (which == 0) {
+                            resultCandidateListAdapter.invokeEvent(position, MainActivity.this);
+                        } else if (which == 1) {
+                            ClipboardManager clipboardManager = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+                            if (clipboardManager != null) {
+                                clipboardManager.setPrimaryClip(ClipData.newPlainText("candidate", candidate.getTitle()));
+                                android.widget.Toast.makeText(MainActivity.this, R.string.result_action_copied, android.widget.Toast.LENGTH_SHORT).show();
+                            }
+                        }
+                    })
+                    .show();
+            return true;
+        });
 
         candidateListView.setOnKeyListener((v, keyCode, event) -> {
             if (event.getAction() == KeyEvent.ACTION_DOWN && v.onKeyDown(keyCode, event)) {

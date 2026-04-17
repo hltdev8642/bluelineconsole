@@ -85,6 +85,38 @@ public class PreferencesFragment extends PreferenceFragmentCompat {
                 }
         );
 
+        if (findPreference("pref_settings_export") != null) {
+            findPreference("pref_settings_export").setOnPreferenceClickListener(preference -> {
+                Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+                intent.setType("application/json");
+                intent.putExtra(Intent.EXTRA_TITLE, "bluelineconsole_settings.json");
+                try {
+                    ((PreferencesActivity) PreferencesFragment.this.getActivity()).setComingBackFlag();
+                    PreferencesFragment.this.startActivityForResult(intent, PreferencesActivity.PREF_EXPORT_REQUEST_CODE);
+                    return true;
+                } catch (Exception exception) {
+                    exception.printStackTrace();
+                    return false;
+                }
+            });
+        }
+
+        if (findPreference("pref_settings_import") != null) {
+            findPreference("pref_settings_import").setOnPreferenceClickListener(preference -> {
+                Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+                intent.setType("application/json");
+                intent.addCategory(Intent.CATEGORY_OPENABLE);
+                try {
+                    ((PreferencesActivity) PreferencesFragment.this.getActivity()).setComingBackFlag();
+                    PreferencesFragment.this.startActivityForResult(intent, PreferencesActivity.PREF_IMPORT_REQUEST_CODE);
+                    return true;
+                } catch (Exception exception) {
+                    exception.printStackTrace();
+                    return false;
+                }
+            });
+        }
+
         ((ListPreference) findPreference(AppThemeDirectory.PREF_NAME_THEME)).setEntries(AppThemeDirectory.getThemePreferenceTitles(this.getContext()));
         ((ListPreference) findPreference(AppThemeDirectory.PREF_NAME_THEME)).setEntryValues(AppThemeDirectory.getThemePreferenceKeys());
 
