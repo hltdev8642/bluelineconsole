@@ -199,41 +199,86 @@
 
     <!-- Help -->
     <string name="app_help_text">
-        You can input one of below list to search apps or commands.
+        Type anything to search apps, run commands, or control your device.
         \n
-        \n-&#032;Part of application name (e.g. Blue Line Console)
-        \n-&#032;Part of package name (e.g. net.nhiroki.bluelineconsole)
-        \n-&#032;URL (e.g. https://example.com/)
-        \n-&#032;Calculation formula (e.g. 2+3*5, 1inch in cm, 1m+1inch, 1m+1inch in cm)
-        \n-&#032;One of commands below (e.g. help)
+        \n── SEARCH ──
         \n
-        \nAvailable commands:
+        \n• App name or package (e.g. Calculator, com.example)
+        \n• URL — opens directly (e.g. https://example.com)
+        \n• Math expression (e.g. 2+3*5, 1inch in cm, 1m+1inch in cm)
+        \n• Color code (e.g. #4d68ff)
+        \n• Contact name (searches your contacts)
         \n
-        \n-&#032;help
-        \n-&#032;config
-        \n-&#032;date
-        \n-&#032;all_apps
-        \n-&#032;cal [&lt;month&gt; &lt;year&gt;]
-        \n-&#032;factor &lt;number&gt; ...
-        \n-&#032;bing &lt;query&gt;
-        \n-&#032;duckduckgo &lt;query&gt;
-        \n-&#032;google &lt;query&gt;
-        \n-&#032;wikipedia &lt;query&gt;
-        \n-&#032;yahoo &lt;query&gt;
+        \n── COMMANDS ──
         \n
-        \nName for search engine name can be abbreviated.
-        \nFor example, \"d somequery\" is equivalent to \"duckduckgo somequery\".
+        \n  help            Show this help
+        \n  config          Open settings
+        \n  date            Show current date/time
+        \n  all_apps        List all installed apps
         \n
-        \nNetwork administrative commands:
+        \n── CALENDAR &amp; MATH ──
         \n
-        \n-&#032;ping &lt;host&gt;, ping6 &lt;host&gt;　(only on systems with corresponding command)
+        \n  cal             Show current month
+        \n  cal &lt;month&gt; &lt;year&gt;   e.g. cal 3 2025
+        \n  factor &lt;n&gt;      Prime factorize number(s)
         \n
-        \nOther commands:
+        \n── TIMER &amp; ALARM ──
         \n
-        \n-&#032;Color code (like #4d68ff)
+        \n  timer &lt;n&gt;       Set timer for n minutes
+        \n  timer &lt;mm:ss&gt;   e.g. timer 1:30
+        \n  timer 1h 30m    Hours, minutes, seconds
+        \n  alarm &lt;HH:MM&gt;   Set alarm (24h) e.g. alarm 7:30
+        \n  alarm &lt;h&gt; am/pm e.g. alarm 9 am
         \n
-        \nHint: Set up Blue Line Console as Default Assistant App from Settings &gt; Apps &amp; notifications &gt; Default Apps &gt; Assistant app or similar menu, to make Blue Line Console open on long-pressing home button.
-        \nHint: Blue Line Console can be launched from notification menu by always showing notification. Find the option from config command.
+        \n── FILE SEARCH ──
+        \n
+        \n  file:&lt;name&gt;     Search media files by name
+        \n  f:&lt;name&gt;        Shorthand (e.g. f:photo)
+        \n
+        \n── WEB SEARCH ──
+        \n
+        \n  google &lt;query&gt;
+        \n  bing &lt;query&gt;
+        \n  duckduckgo &lt;query&gt;
+        \n  yahoo &lt;query&gt;
+        \n  wikipedia &lt;query&gt;
+        \n  (names can be abbreviated: "d query", "g query")
+        \n
+        \n── NETWORK ──
+        \n
+        \n  ping &lt;host&gt;     Ping a host
+        \n  ping6 &lt;host&gt;    IPv6 ping
+        \n
+        \n── SYSTEM SHORTCUTS ──
+        \nType any of these keywords to jump to the setting:
+        \n
+        \n  wifi / bluetooth / volume / brightness
+        \n  airplane / flashlight / dnd / mobile data
+        \n  hotspot / location / nfc / wallet
+        \n  rotate / battery saver / dark mode / cast
+        \n  sync / data usage / accessibility / vpn
+        \n  notifications / privacy / security / storage
+        \n  language / date time / developer / apps
+        \n  network / sim / screensaver / home settings
+        \n  default apps
+        \n
+        \n  Tip: Manage which tiles appear via config → System Command Tiles.
+        \n  Apps with Quick Settings tiles also appear in search.
+        \n
+        \n── KEYWORD ALIASES ──
+        \n
+        \n  Set up short keywords in config → Keyword Aliases.
+        \n  Type the keyword to instantly launch a URL or app activity.
+        \n  Use "Browse Apps…" in the alias editor to pick any activity.
+        \n
+        \n── PLUGINS ──
+        \n
+        \n  Plugins extend search with custom URL launchers, clipboard
+        \n  actions, and text display. Manage via config → Plugins.
+        \n  See doc/PLUGINS.md in the source for the plugin format.
+        \n
+        \nTip: Set Blue Line Console as Default Assistant App (long-press
+        \nhome) via Settings → Apps → Default Apps → Assistant.
     </string>
 
     <!-- Licensing information, untranslatable not to make slightest difference -->
@@ -277,9 +322,21 @@
     <string name="preferences_item_aliases_summary">Create short keywords that launch apps or open URLs</string>
     <string name="alias_keyword_hint">Keyword (e.g., gh)</string>
     <string name="alias_title_hint">Display name (e.g., GitHub)</string>
-    <string name="alias_target_hint">URL or package name</string>
+    <string name="alias_target_hint">URL, package name, or pkg/ActivityClass</string>
     <string name="alias_type_url">URL</string>
     <string name="alias_type_app">App</string>
     <string name="alias_delete_confirm">Delete this alias?</string>
     <string name="alias_fill_all_fields">Please fill all fields</string>
+    <string name="alias_browse_apps">Browse Apps…</string>
+    <string name="alias_picker_title">Select App / Activity</string>
+    <string name="alias_picker_back_to_apps">← Back to Apps</string>
+    <string name="alias_picker_error_no_apps">No apps found</string>
+    <string name="alias_picker_no_activities">No exportable activities found</string>
+
+    <!-- System Command Tiles -->
+    <string name="preferences_title_system_commands">System Command Tiles</string>
+    <string name="preferences_item_system_commands_title">System Command Tiles</string>
+    <string name="preferences_item_system_commands_summary">Choose which system shortcuts are searchable</string>
+    <string name="system_cmd_section_builtin">Built-in Tiles</string>
+    <string name="system_cmd_section_apps">Tiles from Installed Apps</string>
 </resources>

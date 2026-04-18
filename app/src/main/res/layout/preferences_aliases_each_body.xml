@@ -32,6 +32,13 @@
             android:hint="@string/alias_target_hint"
             android:inputType="textUri" />
 
+        <Button
+            android:id="@+id/aliasBrowseAppsButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/alias_browse_apps"
+            android:visibility="gone" />
+
         <RadioGroup
             android:id="@+id/aliasTypeGroup"
             android:layout_width="match_parent"

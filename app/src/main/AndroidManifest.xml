@@ -181,6 +181,16 @@
             android:windowSoftInputMode="stateVisible|adjustResize" />
 
         <activity
+            android:name=".applicationMain.AliasAppPickerActivity"
+            android:exported="false"
+            android:theme="@style/AppThemeBlueLineConsole" />
+
+        <activity
+            android:name=".applicationMain.PreferencesSystemCommandsActivity"
+            android:exported="false"
+            android:theme="@style/AppThemeBlueLineConsole" />
+
+        <activity
             android:name=".commands.netutils.PingActivity"
             android:theme="@style/AppThemeBlueLineConsole"
             android:exported="false" />

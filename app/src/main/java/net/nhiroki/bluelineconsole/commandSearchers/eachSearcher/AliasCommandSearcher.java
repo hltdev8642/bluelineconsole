@@ -1,5 +1,6 @@
 package net.nhiroki.bluelineconsole.commandSearchers.eachSearcher;
 
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.drawable.Drawable;
@@ -63,6 +64,12 @@ public class AliasCommandSearcher implements CommandSearcher {
                 Intent intent;
                 if ("url".equals(alias.type)) {
                     intent = new Intent(Intent.ACTION_VIEW, Uri.parse(alias.target));
+                } else if (alias.target.contains("/")) {
+                    // Component format: "pkg/class" — launch a specific activity
+                    String[] parts = alias.target.split("/", 2);
+                    intent = new Intent(Intent.ACTION_MAIN);
+                    intent.addCategory(Intent.CATEGORY_LAUNCHER);
+                    intent.setComponent(new ComponentName(parts[0], parts[1]));
                 } else {
                     intent = activity.getPackageManager().getLaunchIntentForPackage(alias.target);
                     if (intent == null) return;

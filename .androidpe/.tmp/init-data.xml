@@ -47,7 +47,7 @@
       <dep name="com.android.tools.utp:gradle-work-action:32.1.0" path="/data/data/jkas.androidpe/files/home/.gradle/caches/modules-2/files-2.1/com.android.tools.utp/gradle-work-action/32.1.0/edf6d48971aa9ad3fb2218ffdf4c36dbf911e106/gradle-work-action-32.1.0.jar" />
       <dep name="com.google.testing.platform:launcher:0.0.9-alpha04" path="/data/data/jkas.androidpe/files/home/.gradle/caches/modules-2/files-2.1/com.google.testing.platform/launcher/0.0.9-alpha04/c1b69385c42f0c4a6a72642b6ad42d09e437fd33/launcher-0.0.9-alpha04.jar" />
       <dep name="org.jacoco:org.jacoco.ant:0.8.14" path="/data/data/jkas.androidpe/files/home/.gradle/caches/modules-2/files-2.1/org.jacoco/org.jacoco.ant/0.8.14/f52b386d3440618462eb656584b6f655a655c2b1/org.jacoco.ant-0.8.14.jar" />
-      <dep name="org.gradle.api.internal.artifacts.dependencies.DefaultFileCollectionDependency_Decorated@40af072c" path="" />
+      <dep name="org.gradle.api.internal.artifacts.dependencies.DefaultFileCollectionDependency_Decorated@21c6b20e" path="" />
       <dep name="androidx.test.ext:junit:1.3.0" path="/data/data/jkas.androidpe/files/home/.gradle/caches/modules-2/files-2.1/androidx.test.ext/junit/1.3.0/1461515f981eb6342553074fc9ffa0528c083f86/junit-1.3.0.aar" />
       <dep name="androidx.test.espresso:espresso-core:3.7.0" path="/data/data/jkas.androidpe/files/home/.gradle/caches/modules-2/files-2.1/androidx.test.espresso/espresso-core/3.7.0/9f54800d1df0414ce8584a05637f8004b344bd12/espresso-core-3.7.0.aar" />
       <project name="project ':app'" />
