@@ -136,8 +136,13 @@ public class PreferencesAliasesEachActivity extends BaseWindowActivity {
             if (pi.activities != null) {
                 for (ActivityInfo ai : pi.activities) {
                     if (ai.exported) {
-                        CharSequence lbl = ai.loadLabel(pm);
-                        activityLabels.add(lbl != null ? lbl.toString() : ai.name);
+                        String actLabel;
+                        if (ai.labelRes != 0) {
+                            actLabel = ai.loadLabel(pm).toString() + "\n" + ai.name;
+                        } else {
+                            actLabel = ai.name;
+                        }
+                        activityLabels.add(actLabel);
                         componentNames.add(ai.packageName + "/" + ai.name);
                     }
                 }
