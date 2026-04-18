@@ -32,6 +32,43 @@
             android:hint="@string/alias_target_hint"
             android:inputType="textUri" />
 
+        <!-- Icon selection: preview and buttons -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="8dp"
+            android:gravity="center_vertical">
+
+            <ImageView
+                android:id="@+id/aliasIconPreview"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:contentDescription="@string/alias_icon_preview"
+                android:src="@mipmap/ic_launcher" />
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:paddingStart="8dp">
+
+                <Button
+                    android:id="@+id/aliasUseAppIconButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/alias_use_app_icon" />
+
+                <Button
+                    android:id="@+id/aliasChooseIconButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/alias_choose_icon" />
+
+            </LinearLayout>
+        </LinearLayout>
+
         <Button
             android:id="@+id/aliasBrowseAppsButton"
             android:layout_width="match_parent"

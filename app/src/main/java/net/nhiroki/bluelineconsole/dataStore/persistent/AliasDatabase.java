@@ -19,6 +19,7 @@ public class AliasDatabase {
         public String title;
         public String target;
         public String type; // "url" or "app"
+        public String icon; // optional: if null or empty and type=="app", use parent app icon; if starts with "uri:", use that image URI
 
         public Alias() {}
         public Alias(String keyword, String title, String target, String type) {
@@ -26,6 +27,14 @@ public class AliasDatabase {
             this.title = title;
             this.target = target;
             this.type = type;
+            this.icon = null;
+        }
+        public Alias(String keyword, String title, String target, String type, String icon) {
+            this.keyword = keyword;
+            this.title = title;
+            this.target = target;
+            this.type = type;
+            this.icon = icon;
         }
 
         public JSONObject toJson() throws JSONException {
@@ -34,6 +43,7 @@ public class AliasDatabase {
             o.put("title", title);
             o.put("target", target);
             o.put("type", type);
+            if (icon != null) o.put("icon", icon);
             return o;
         }
 
@@ -43,6 +53,7 @@ public class AliasDatabase {
             a.title = o.getString("title");
             a.target = o.getString("target");
             a.type = o.getString("type");
+            a.icon = o.has("icon") ? o.getString("icon") : null;
             return a;
         }
     }

@@ -6,10 +6,12 @@ import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ImageView;
 import android.widget.RadioButton;
 import android.widget.RadioGroup;
 import android.widget.Toast;
@@ -20,11 +22,19 @@ import net.nhiroki.bluelineconsole.dataStore.persistent.AliasDatabase;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import android.graphics.drawable.Drawable;
 
 public class PreferencesAliasesEachActivity extends BaseWindowActivity {
 
     private EditText targetEdit;
     private Button browseAppsButton;
+    private ImageView aliasIconPreview;
+    private Button aliasUseAppIconButton;
+    private Button aliasChooseIconButton;
+
+    private static final int REQUEST_PICK_ICON = 3001;
+    private String chosenIconUri = null; // raw content URI string
+    private boolean useAppIcon = true;
 
     public PreferencesAliasesEachActivity() {
         super(R.layout.preferences_aliases_each_body, false);
@@ -43,6 +53,10 @@ public class PreferencesAliasesEachActivity extends BaseWindowActivity {
         Button saveButton = findViewById(R.id.aliasSaveButton);
         browseAppsButton = findViewById(R.id.aliasBrowseAppsButton);
 
+        aliasIconPreview = findViewById(R.id.aliasIconPreview);
+        aliasUseAppIconButton = findViewById(R.id.aliasUseAppIconButton);
+        aliasChooseIconButton = findViewById(R.id.aliasChooseIconButton);
+
         String keyword = getIntent().getStringExtra("keyword");
         if (keyword != null) {
             keywordEdit.setText(keyword);
@@ -53,6 +67,24 @@ public class PreferencesAliasesEachActivity extends BaseWindowActivity {
                 ((RadioButton) findViewById(R.id.aliasTypeApp)).setChecked(true);
                 browseAppsButton.setVisibility(View.VISIBLE);
             }
+            String iconExtra = getIntent().getStringExtra("icon");
+            if (iconExtra != null) {
+                // iconExtra may be in form "uri:<uri>"
+                if (iconExtra.startsWith("uri:")) {
+                    chosenIconUri = iconExtra.substring(4);
+                    useAppIcon = false;
+                    try {
+                        aliasIconPreview.setImageURI(Uri.parse(chosenIconUri));
+                    } catch (Exception ignored) {}
+                } else {
+                    // unknown format, treat as app icon default
+                    useAppIcon = true;
+                }
+            } else {
+                useAppIcon = true;
+            }
+        } else {
+            useAppIcon = true;
         }
 
         typeGroup.setOnCheckedChangeListener((group, checkedId) -> {
@@ -61,6 +93,29 @@ public class PreferencesAliasesEachActivity extends BaseWindowActivity {
         });
 
         browseAppsButton.setOnClickListener(v -> showAppPickerDialog());
+
+        aliasUseAppIconButton.setOnClickListener(v -> {
+            useAppIcon = true;
+            chosenIconUri = null;
+            // if target contains package, update preview to that app's icon
+            String target = targetEdit.getText().toString().trim();
+            if (target.contains("/")) {
+                String pkg = target.split("/")[0];
+                updateIconPreviewForPackage(pkg);
+            }
+        });
+
+        aliasChooseIconButton.setOnClickListener(v -> {
+            Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+            intent.setType("image/*");
+            intent.addCategory(Intent.CATEGORY_OPENABLE);
+            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            try {
+                startActivityForResult(intent, REQUEST_PICK_ICON);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        });
 
         saveButton.setOnClickListener(v -> {
             String kw = keywordEdit.getText().toString().trim();
@@ -74,11 +129,35 @@ public class PreferencesAliasesEachActivity extends BaseWindowActivity {
                 return;
             }
 
-            AliasDatabase.Alias alias = new AliasDatabase.Alias(kw, title, target, type);
+            String iconValue = null;
+            if (!useAppIcon && chosenIconUri != null) {
+                iconValue = "uri:" + chosenIconUri;
+            }
+
+            AliasDatabase.Alias alias = new AliasDatabase.Alias(kw, title, target, type, iconValue);
             new AliasDatabase().add(this, alias);
             setResult(RESULT_OK);
             finish();
         });
+    }
+
+    @Override
+    @SuppressWarnings("deprecation")
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQUEST_PICK_ICON && resultCode == RESULT_OK && data != null && data.getData() != null) {
+            Uri uri = data.getData();
+            try {
+                // Persist read permission
+                final int takeFlags = data.getFlags() & (Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                getContentResolver().takePersistableUriPermission(uri, takeFlags);
+            } catch (Exception ignored) {}
+            chosenIconUri = uri.toString();
+            useAppIcon = false;
+            try {
+                aliasIconPreview.setImageURI(Uri.parse(chosenIconUri));
+            } catch (Exception ignored) {}
+        }
     }
 
     private void showAppPickerDialog() {
@@ -171,9 +250,24 @@ public class PreferencesAliasesEachActivity extends BaseWindowActivity {
                 .setTitle(appLabel)
                 .setItems(items, (dialog, which) -> {
                     targetEdit.setText(componentNames.get(which));
+                    // If using app icon mode, update preview to the selected package's icon
+                    if (useAppIcon) {
+                        String sel = componentNames.get(which);
+                        String pkg = sel.contains("/") ? sel.split("/")[0] : sel;
+                        updateIconPreviewForPackage(pkg);
+                    }
                 })
                 .setNegativeButton(android.R.string.cancel, null)
                 .show();
+    }
+
+    private void updateIconPreviewForPackage(String packageName) {
+        try {
+            Drawable d = getPackageManager().getApplicationIcon(packageName);
+            aliasIconPreview.setImageDrawable(d);
+        } catch (Exception e) {
+            // ignore, leave default
+        }
     }
 }
 

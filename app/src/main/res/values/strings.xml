@@ -48,6 +48,11 @@
     <!-- Preferences general buttons -->
     <string name="button_add">Add</string>
     <string name="button_update">Update</string>
+    <string name="alias_icon_preview">Icon preview</string>
+    <string name="alias_use_app_icon">Use app icon</string>
+    <string name="alias_choose_icon">Choose icon</string>
+    <string name="select_all">Select All</string>
+    <string name="deselect_all">Deselect All</string>
     <string name="button_delete">Delete</string>
     <string name="button_close">Close</string>
     <string name="button_increment_minimal">+</string>

@@ -215,9 +215,46 @@ public class PreferencesFragment extends PreferenceFragmentCompat {
                         adapter.notifyDataSetChanged();
                     });
 
-                    new AlertDialog.Builder(ctx)
+                    // Build a container view with Select All / Deselect All buttons + the list
+                    android.widget.LinearLayout container = new android.widget.LinearLayout(ctx);
+                    container.setOrientation(android.widget.LinearLayout.VERTICAL);
+
+                    android.widget.LinearLayout btnRow = new android.widget.LinearLayout(ctx);
+                    btnRow.setOrientation(android.widget.LinearLayout.HORIZONTAL);
+
+                    android.widget.Button selectAll = new android.widget.Button(ctx);
+                    selectAll.setText(ctx.getString(R.string.select_all));
+                    selectAll.setOnClickListener(v -> {
+                        for (Object r : rows) {
+                            if (r instanceof SystemCommandSearcher.SystemCommandDef) {
+                                SystemCommandSearcher.SystemCommandDef d = (SystemCommandSearcher.SystemCommandDef) r;
+                                prefs.edit().putBoolean("syscmd_" + d.id, true).apply();
+                            }
+                        }
+                        adapter.notifyDataSetChanged();
+                    });
+
+                    android.widget.Button deselectAll = new android.widget.Button(ctx);
+                    deselectAll.setText(ctx.getString(R.string.deselect_all));
+                    deselectAll.setOnClickListener(v -> {
+                        for (Object r : rows) {
+                            if (r instanceof SystemCommandSearcher.SystemCommandDef) {
+                                SystemCommandSearcher.SystemCommandDef d = (SystemCommandSearcher.SystemCommandDef) r;
+                                prefs.edit().putBoolean("syscmd_" + d.id, false).apply();
+                            }
+                        }
+                        adapter.notifyDataSetChanged();
+                    });
+
+                    btnRow.addView(selectAll, new android.widget.LinearLayout.LayoutParams(0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+                    btnRow.addView(deselectAll, new android.widget.LinearLayout.LayoutParams(0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+
+                    container.addView(btnRow);
+                    container.addView(listView, new android.widget.LinearLayout.LayoutParams(android.widget.LinearLayout.LayoutParams.MATCH_PARENT, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT));
+
+                    new AlertDialog.Builder(getActivity())
                             .setTitle(R.string.preferences_item_system_commands_title)
-                            .setView(listView)
+                            .setView(container)
                             .setNegativeButton(android.R.string.cancel, null)
                             .show();
 

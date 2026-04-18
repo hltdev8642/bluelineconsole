@@ -60,6 +60,7 @@ public class PreferencesAliasesActivity extends BaseWindowActivity {
             i.putExtra("title", alias.title);
             i.putExtra("target", alias.target);
             i.putExtra("type", alias.type);
+            if (alias.icon != null) i.putExtra("icon", alias.icon);
             //noinspection deprecation
             startActivityForResult(i, REQUEST_ADD_ALIAS);
         });
