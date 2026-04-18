@@ -172,6 +172,12 @@ public class PreferencesActivity extends BaseWindowActivity {
         this.changeBaseWindowElementSizeForAnimation(true);
     }
 
+    @Override
+    protected void onStop() {
+        super.onStop();
+        // Do not auto-finish to avoid closing the preferences stack unexpectedly when launching dialogs or sub-screens.
+    }
+
     private boolean writePreferencesToUri(Uri uri) {
         try {
             Map<String, ?> allPreferences = PreferenceManager.getDefaultSharedPreferences(this).getAll();
@@ -260,12 +266,5 @@ public class PreferencesActivity extends BaseWindowActivity {
         }
     }
 
-    @Override
-    protected void onStop() {
-        // This app should be as stateless as possible. When app disappears most activities should finish.
-        super.onStop();
-        if (! this._comingBack) {
-            this.finish();
-        }
-    }
 }
+

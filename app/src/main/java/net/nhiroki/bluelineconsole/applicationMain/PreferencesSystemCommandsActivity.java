@@ -96,9 +96,4 @@ public class PreferencesSystemCommandsActivity extends BaseWindowActivity {
         });
     }
 
-    @Override
-    protected void onStop() {
-        super.onStop();
-        this.finish();
-    }
 }

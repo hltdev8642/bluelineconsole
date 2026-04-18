@@ -115,21 +115,15 @@
                 />
         </Preference>
         <Preference
+            android:key="pref_aliases"
             android:title="@string/preferences_item_aliases_title"
             android:summary="@string/preferences_item_aliases_summary"
-            app:iconSpaceReserved="false">
-            <intent
-                android:targetClass="net.nhiroki.bluelineconsole.applicationMain.PreferencesAliasesActivity"
-                android:targetPackage="net.nhiroki.bluelineconsole" />
-        </Preference>
+            app:iconSpaceReserved="false" />
         <Preference
+            android:key="pref_system_commands"
             android:title="@string/preferences_item_system_commands_title"
             android:summary="@string/preferences_item_system_commands_summary"
-            app:iconSpaceReserved="false">
-            <intent
-                android:targetClass="net.nhiroki.bluelineconsole.applicationMain.PreferencesSystemCommandsActivity"
-                android:targetPackage="net.nhiroki.bluelineconsole" />
-        </Preference>
+            app:iconSpaceReserved="false" />
     </PreferenceCategory>
     <PreferenceCategory
         android:title="@string/preferences_category_home_screen"
