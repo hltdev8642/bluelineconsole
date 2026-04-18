@@ -24,6 +24,8 @@
     <string name="result_action_open">Open</string>
     <string name="result_action_copy_title">Copy title</string>
     <string name="result_action_copied">Copied</string>
+    <string name="result_action_app_info">App Info</string>
+    <string name="result_action_uninstall">Uninstall</string>
 
     <!-- Themes -->
     <string name="theme_name_default">Default (Light or Dark, according to system setting)</string>
@@ -267,4 +269,17 @@
     <string name="plugin_manager_file_picker_unavailable">Cannot open file picker</string>
     <string name="preferences_item_plugin_delete_confirm">Delete plugin \"%1$s\"?</string>
     <string name="preferences_item_plugin_deleted">Deleted plugin \"%1$s\"</string>
+
+    <!-- Aliases -->
+    <string name="preferences_title_aliases">Custom Aliases</string>
+    <string name="preferences_title_alias_edit">Edit Alias</string>
+    <string name="preferences_item_aliases_title">Keyword Aliases</string>
+    <string name="preferences_item_aliases_summary">Create short keywords that launch apps or open URLs</string>
+    <string name="alias_keyword_hint">Keyword (e.g., gh)</string>
+    <string name="alias_title_hint">Display name (e.g., GitHub)</string>
+    <string name="alias_target_hint">URL or package name</string>
+    <string name="alias_type_url">URL</string>
+    <string name="alias_type_app">App</string>
+    <string name="alias_delete_confirm">Delete this alias?</string>
+    <string name="alias_fill_all_fields">Please fill all fields</string>
 </resources>

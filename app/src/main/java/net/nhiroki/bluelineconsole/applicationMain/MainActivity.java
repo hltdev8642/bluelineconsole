@@ -24,6 +24,8 @@ import net.nhiroki.bluelineconsole.applicationMain.lib.EditTextConfigurations;
 import net.nhiroki.bluelineconsole.commandSearchers.CommandSearchAggregator;
 import net.nhiroki.bluelineconsole.dataStore.deviceLocal.WidgetsSetting;
 import net.nhiroki.bluelineconsole.interfaces.CandidateEntry;
+import net.nhiroki.bluelineconsole.interfaces.ContextAction;
+import net.nhiroki.bluelineconsole.interfaces.ContextActionProvider;
 
 
 public class MainActivity extends BaseWindowActivity {
@@ -91,22 +93,33 @@ public class MainActivity extends BaseWindowActivity {
                 return false;
             }
 
-            CharSequence[] actions = {
-                    getString(R.string.result_action_open),
-                    getString(R.string.result_action_copy_title)
-            };
+            List<String> actionNames = new ArrayList<>();
+            List<Runnable> actionCallbacks = new ArrayList<>();
+
+            actionNames.add(getString(R.string.result_action_open));
+            actionCallbacks.add(() -> resultCandidateListAdapter.invokeEvent(position, MainActivity.this));
+
+            actionNames.add(getString(R.string.result_action_copy_title));
+            actionCallbacks.add(() -> {
+                ClipboardManager clipboardManager = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+                if (clipboardManager != null) {
+                    clipboardManager.setPrimaryClip(ClipData.newPlainText("candidate", candidate.getTitle()));
+                    android.widget.Toast.makeText(MainActivity.this, R.string.result_action_copied, android.widget.Toast.LENGTH_SHORT).show();
+                }
+            });
+
+            if (candidate instanceof ContextActionProvider) {
+                List<ContextAction> contextActions = ((ContextActionProvider) candidate).getContextActions(MainActivity.this);
+                for (ContextAction action : contextActions) {
+                    final ContextAction.Callback cb = action.getCallback();
+                    actionNames.add(action.getName());
+                    actionCallbacks.add(() -> cb.execute(MainActivity.this));
+                }
+            }
+
+            CharSequence[] items = actionNames.toArray(new CharSequence[0]);
             new android.app.AlertDialog.Builder(MainActivity.this)
-                    .setItems(actions, (dialog, which) -> {
-                        if (which == 0) {
-                            resultCandidateListAdapter.invokeEvent(position, MainActivity.this);
-                        } else if (which == 1) {
-                            ClipboardManager clipboardManager = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
-                            if (clipboardManager != null) {
-                                clipboardManager.setPrimaryClip(ClipData.newPlainText("candidate", candidate.getTitle()));
-                                android.widget.Toast.makeText(MainActivity.this, R.string.result_action_copied, android.widget.Toast.LENGTH_SHORT).show();
-                            }
-                        }
-                    })
+                    .setItems(items, (dialog, which) -> actionCallbacks.get(which).run())
                     .show();
             return true;
         });
@@ -315,6 +328,13 @@ public class MainActivity extends BaseWindowActivity {
 
     private void executeSearch(String query) {
         List<CandidateEntry> candidates = new ArrayList<>();
+
+        if (query.isEmpty()) {
+            List<CandidateEntry> recentEntries = commandSearchAggregator.recentCandidateEntries(this);
+            if (!recentEntries.isEmpty()) {
+                candidates.addAll(recentEntries);
+            }
+        }
 
         if (! query.isEmpty()) {
             candidates.addAll(commandSearchAggregator.searchCandidateEntries(query, MainActivity.this));

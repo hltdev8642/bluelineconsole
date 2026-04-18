@@ -19,8 +19,10 @@ import androidx.annotation.NonNull;
 import androidx.preference.PreferenceManager;
 
 import net.nhiroki.bluelineconsole.R;
+import net.nhiroki.bluelineconsole.applicationMain.UsageTracker;
 import net.nhiroki.bluelineconsole.interfaces.CandidateEntry;
 import net.nhiroki.bluelineconsole.interfaces.EventLauncher;
+import net.nhiroki.bluelineconsole.interfaces.UsageTrackable;
 
 import java.util.HashMap;
 import java.util.List;
@@ -165,7 +167,11 @@ class CandidateListAdapter extends ArrayAdapter<CandidateEntry> {
     }
 
     public void invokeEvent(int position, Context context) {
-        EventLauncher eventLauncher = this.getItem(position).getEventLauncher(context);
+        CandidateEntry candidate = this.getItem(position);
+        if (candidate instanceof UsageTrackable) {
+            UsageTracker.recordLaunch(context, ((UsageTrackable) candidate).getUsageKey());
+        }
+        EventLauncher eventLauncher = candidate.getEventLauncher(context);
 
         if (eventLauncher != null) {
             eventLauncher.launch(activity);

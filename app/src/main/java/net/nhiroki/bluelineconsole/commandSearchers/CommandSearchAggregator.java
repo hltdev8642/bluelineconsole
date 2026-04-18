@@ -2,6 +2,7 @@ package net.nhiroki.bluelineconsole.commandSearchers;
 
 import android.content.Context;
 
+import net.nhiroki.bluelineconsole.commandSearchers.eachSearcher.AliasCommandSearcher;
 import net.nhiroki.bluelineconsole.commandSearchers.eachSearcher.ApplicationCommandSearcher;
 import net.nhiroki.bluelineconsole.commandSearchers.eachSearcher.CalendarCommandSearcher;
 import net.nhiroki.bluelineconsole.commandSearchers.eachSearcher.CalculatorCommandSearcher;
@@ -9,12 +10,15 @@ import net.nhiroki.bluelineconsole.commandSearchers.eachSearcher.ColorDisplayCom
 import net.nhiroki.bluelineconsole.commandSearchers.eachSearcher.ContactSearchCommandSearcher;
 import net.nhiroki.bluelineconsole.commandSearchers.eachSearcher.DateCommandSearcher;
 import net.nhiroki.bluelineconsole.commandSearchers.eachSearcher.FactorCommandSearcher;
+import net.nhiroki.bluelineconsole.commandSearchers.eachSearcher.FileSearchCommandSearcher;
 import net.nhiroki.bluelineconsole.commandSearchers.eachSearcher.HelpCommandSearcher;
 import net.nhiroki.bluelineconsole.commandSearchers.eachSearcher.NetUtilCommandSearcher;
 import net.nhiroki.bluelineconsole.commandSearchers.eachSearcher.PreferencesCommandSearcher;
 import net.nhiroki.bluelineconsole.commandSearchers.eachSearcher.PluginCommandSearcher;
 import net.nhiroki.bluelineconsole.commandSearchers.eachSearcher.SearchEngineCommandSearcher;
 import net.nhiroki.bluelineconsole.commandSearchers.eachSearcher.SearchEngineDefaultCommandSearcher;
+import net.nhiroki.bluelineconsole.commandSearchers.eachSearcher.SystemCommandSearcher;
+import net.nhiroki.bluelineconsole.commandSearchers.eachSearcher.TimerAlarmCommandSearcher;
 import net.nhiroki.bluelineconsole.commandSearchers.eachSearcher.URICommandSearcher;
 import net.nhiroki.bluelineconsole.commandSearchers.eachSearcher.WidgetCommandSearcher;
 import net.nhiroki.bluelineconsole.dataStore.persistent.HomeScreenSetting;
@@ -28,6 +32,7 @@ import java.util.ArrayList;
 public class CommandSearchAggregator {
     private final List <CommandSearcher> commandSearcherList = new ArrayList<>();
     private final List <CommandSearcher> commandSearcherListAlwaysLast = new ArrayList<>();
+    private final ApplicationCommandSearcher applicationCommandSearcher;
 
     private AppWidgetsHostManager appWidgetsHostManager = null;
 
@@ -35,6 +40,9 @@ public class CommandSearchAggregator {
     public CommandSearchAggregator(Context context) {
         // Starting with specific string
         commandSearcherList.add(new HelpCommandSearcher());
+        commandSearcherList.add(new SystemCommandSearcher());
+        commandSearcherList.add(new TimerAlarmCommandSearcher());
+        commandSearcherList.add(new AliasCommandSearcher());
         commandSearcherList.add(new PreferencesCommandSearcher());
         commandSearcherList.add(new DateCommandSearcher());
         commandSearcherList.add(new URICommandSearcher());
@@ -53,7 +61,9 @@ public class CommandSearchAggregator {
 
         // Command searchers which may return tons candidate should comes to the last of "search result"
         commandSearcherList.add(new ContactSearchCommandSearcher());
-        commandSearcherList.add(new ApplicationCommandSearcher());
+        commandSearcherList.add(new FileSearchCommandSearcher());
+        applicationCommandSearcher = new ApplicationCommandSearcher();
+        commandSearcherList.add(applicationCommandSearcher);
 
         // This should be separately called and order does not matter, and results are placed at last.
         commandSearcherListAlwaysLast.add(new SearchEngineDefaultCommandSearcher(context));
@@ -115,6 +125,10 @@ public class CommandSearchAggregator {
         }
 
         return candidates;
+    }
+
+    public List<CandidateEntry> recentCandidateEntries(Context context) {
+        return applicationCommandSearcher.getRecentEntries(context, 8);
     }
 
     public List<CandidateEntry> homeScreenDefaultCandidateEntries(Context context) {
