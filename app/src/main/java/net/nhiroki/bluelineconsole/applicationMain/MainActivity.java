@@ -22,6 +22,7 @@ import net.nhiroki.bluelineconsole.BuildConfig;
 import net.nhiroki.bluelineconsole.R;
 import net.nhiroki.bluelineconsole.applicationMain.lib.EditTextConfigurations;
 import net.nhiroki.bluelineconsole.commandSearchers.CommandSearchAggregator;
+import net.nhiroki.bluelineconsole.commandSearchers.lib.QueryPreprocessor;
 import net.nhiroki.bluelineconsole.dataStore.deviceLocal.WidgetsSetting;
 import net.nhiroki.bluelineconsole.interfaces.CandidateEntry;
 import net.nhiroki.bluelineconsole.interfaces.ContextAction;
@@ -310,9 +311,16 @@ public class MainActivity extends BaseWindowActivity {
 
         final boolean contentFilled = !mainInputText.getText().toString().isEmpty() || this.homeItemExists;
 
-        this.setWindowBoundarySize(contentFilled ? ROOT_WINDOW_FULL_WIDTH_IN_MOBILE : ROOT_WINDOW_ALWAYS_HORIZONTAL_MARGIN, 0);
-
-        this.setWindowLocationGravity(contentFilled ? Gravity.TOP : Gravity.CENTER_VERTICAL);
+        // Compact overlay mode (toggleable in prefs) places a centered compact window instead of full-width top window
+        boolean compactMode = PreferenceManager.getDefaultSharedPreferences(this).getBoolean("pref_overlay_compact_mode", false);
+        if (compactMode) {
+            int width = (int)(getResources().getDisplayMetrics().widthPixels * 0.72);
+            this.setWindowBoundarySize(width, 0);
+            this.setWindowLocationGravity(Gravity.CENTER);
+        } else {
+            this.setWindowBoundarySize(contentFilled ? ROOT_WINDOW_FULL_WIDTH_IN_MOBILE : ROOT_WINDOW_ALWAYS_HORIZONTAL_MARGIN, 0);
+            this.setWindowLocationGravity(contentFilled ? Gravity.TOP : Gravity.CENTER_VERTICAL);
+        }
 
         final double pixelsPerSp = getResources().getDisplayMetrics().scaledDensity;
 
@@ -329,25 +337,27 @@ public class MainActivity extends BaseWindowActivity {
     private void executeSearch(String query) {
         List<CandidateEntry> candidates = new ArrayList<>();
 
-        if (query.isEmpty()) {
+        String p = QueryPreprocessor.preprocess(this, query);
+
+        if (p.isEmpty()) {
             List<CandidateEntry> recentEntries = commandSearchAggregator.recentCandidateEntries(this);
             if (!recentEntries.isEmpty()) {
                 candidates.addAll(recentEntries);
             }
         }
 
-        if (! query.isEmpty()) {
-            candidates.addAll(commandSearchAggregator.searchCandidateEntries(query, MainActivity.this));
+        if (! p.isEmpty()) {
+            candidates.addAll(commandSearchAggregator.searchCandidateEntries(p, MainActivity.this));
         }
 
-        if (this.iAmHomeActivity && query.isEmpty()) {
+        if (this.iAmHomeActivity && p.isEmpty()) {
             List<CandidateEntry> homeScreenEntries = commandSearchAggregator.homeScreenDefaultCandidateEntries(this);
             candidates.addAll(homeScreenEntries);
             this.homeItemExists = ! homeScreenEntries.isEmpty();
         }
 
-        if (! query.isEmpty()) {
-            candidates.addAll(commandSearchAggregator.searchCandidateEntriesForLast(query, this));
+        if (! p.isEmpty()) {
+            candidates.addAll(commandSearchAggregator.searchCandidateEntriesForLast(p, this));
         }
 
         resultCandidateListAdapter.clear();
