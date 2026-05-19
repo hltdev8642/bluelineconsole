@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="match_parent">
+
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="16dp">
+
+        <EditText android:id="@+id/intentActionEdit" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="Action (e.g. android.intent.action.VIEW)" />
+
+        <EditText android:id="@+id/intentDataUriEdit" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="Data URI (use {query})" />
+
+        <EditText android:id="@+id/intentMimeTypeEdit" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="MIME type (e.g. image/*)" />
+
+        <EditText android:id="@+id/intentComponentEdit" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="Component (package/class)" />
+
+        <EditText android:id="@+id/intentFlagsEdit" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="Flags (comma-separated names or ints)" />
+
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Extras" android:paddingTop="8dp" />
+        <ListView android:id="@+id/intentExtrasListView" android:layout_width="match_parent" android:layout_height="120dp" />
+        <Button android:id="@+id/intentAddExtraButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Add extra" />
+
+        <Button android:id="@+id/intentSaveButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Save" android:layout_marginTop="16dp" />
+    </LinearLayout>
+</ScrollView>

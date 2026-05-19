@@ -94,7 +94,30 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/alias_type_app" />
+
+            <RadioButton
+                android:id="@+id/aliasTypeIntent"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/alias_type_intent" />
         </RadioGroup>
+
+        <Button
+            android:id="@+id/aliasEditIntentButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/alias_edit_intent"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/aliasIntentSummary"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text=""
+            android:visibility="gone"
+            android:textIsSelectable="true"
+            android:paddingTop="8dp"
+            android:paddingBottom="8dp" />
 
         <Button
             android:id="@+id/aliasSaveButton"

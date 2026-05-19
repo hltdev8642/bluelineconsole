@@ -18,8 +18,9 @@ public class AliasDatabase {
         public String keyword;
         public String title;
         public String target;
-        public String type; // "url" or "app"
+        public String type; // "url", "app", or "intent"
         public String icon; // optional: if null or empty and type=="app", use parent app icon; if starts with "uri:", use that image URI
+        public String intentSpecJson; // optional JSON describing an Intent to build/run
 
         public Alias() {}
         public Alias(String keyword, String title, String target, String type) {
@@ -28,6 +29,7 @@ public class AliasDatabase {
             this.target = target;
             this.type = type;
             this.icon = null;
+            this.intentSpecJson = null;
         }
         public Alias(String keyword, String title, String target, String type, String icon) {
             this.keyword = keyword;
@@ -35,6 +37,15 @@ public class AliasDatabase {
             this.target = target;
             this.type = type;
             this.icon = icon;
+            this.intentSpecJson = null;
+        }
+        public Alias(String keyword, String title, String target, String type, String icon, String intentSpecJson) {
+            this.keyword = keyword;
+            this.title = title;
+            this.target = target;
+            this.type = type;
+            this.icon = icon;
+            this.intentSpecJson = intentSpecJson;
         }
 
         public JSONObject toJson() throws JSONException {
@@ -44,6 +55,7 @@ public class AliasDatabase {
             o.put("target", target);
             o.put("type", type);
             if (icon != null) o.put("icon", icon);
+            if (intentSpecJson != null) o.put("intentSpecJson", intentSpecJson);
             return o;
         }
 
@@ -54,6 +66,7 @@ public class AliasDatabase {
             a.target = o.getString("target");
             a.type = o.getString("type");
             a.icon = o.has("icon") ? o.getString("icon") : null;
+            a.intentSpecJson = o.has("intentSpecJson") ? o.getString("intentSpecJson") : null;
             return a;
         }
     }

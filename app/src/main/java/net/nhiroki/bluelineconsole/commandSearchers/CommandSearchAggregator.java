@@ -15,6 +15,7 @@ import net.nhiroki.bluelineconsole.commandSearchers.eachSearcher.HelpCommandSear
 import net.nhiroki.bluelineconsole.commandSearchers.eachSearcher.NetUtilCommandSearcher;
 import net.nhiroki.bluelineconsole.commandSearchers.eachSearcher.PreferencesCommandSearcher;
 import net.nhiroki.bluelineconsole.commandSearchers.eachSearcher.PluginCommandSearcher;
+import net.nhiroki.bluelineconsole.commandSearchers.eachSearcher.IntentAliasCommandSearcher;
 import net.nhiroki.bluelineconsole.commandSearchers.eachSearcher.SearchEngineCommandSearcher;
 import net.nhiroki.bluelineconsole.commandSearchers.eachSearcher.SearchEngineDefaultCommandSearcher;
 import net.nhiroki.bluelineconsole.commandSearchers.eachSearcher.SystemCommandSearcher;
@@ -43,6 +44,8 @@ public class CommandSearchAggregator {
         commandSearcherList.add(new SystemCommandSearcher());
         commandSearcherList.add(new TimerAlarmCommandSearcher());
         commandSearcherList.add(new AliasCommandSearcher());
+        // Intent alias searcher should run immediately after alias expansion so it can provide executeable candidate
+        commandSearcherList.add(new IntentAliasCommandSearcher());
         commandSearcherList.add(new PreferencesCommandSearcher());
         commandSearcherList.add(new DateCommandSearcher());
         commandSearcherList.add(new URICommandSearcher());

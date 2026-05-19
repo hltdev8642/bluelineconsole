@@ -36,6 +36,14 @@ public class PreferencesAliasesEachActivity extends BaseWindowActivity {
     private String chosenIconUri = null; // raw content URI string
     private boolean useAppIcon = true;
 
+    // Intent editor state (moved to fields so onActivityResult can update)
+    private String currentIntentJson = null;
+    private android.widget.TextView aliasIntentSummary;
+    private Button aliasEditIntentButton;
+
+    // whether this activity is creating a new alias (vs editing existing)
+    private boolean creatingNewAlias = false;
+
     public PreferencesAliasesEachActivity() {
         super(R.layout.preferences_aliases_each_body, false);
     }
@@ -57,7 +65,11 @@ public class PreferencesAliasesEachActivity extends BaseWindowActivity {
         aliasUseAppIconButton = findViewById(R.id.aliasUseAppIconButton);
         aliasChooseIconButton = findViewById(R.id.aliasChooseIconButton);
 
+        aliasEditIntentButton = findViewById(R.id.aliasEditIntentButton);
+        aliasIntentSummary = findViewById(R.id.aliasIntentSummary);
+
         String keyword = getIntent().getStringExtra("keyword");
+        creatingNewAlias = (keyword == null);
         if (keyword != null) {
             keywordEdit.setText(keyword);
             titleEdit.setText(getIntent().getStringExtra("title"));
@@ -66,6 +78,15 @@ public class PreferencesAliasesEachActivity extends BaseWindowActivity {
             if ("app".equals(type)) {
                 ((RadioButton) findViewById(R.id.aliasTypeApp)).setChecked(true);
                 browseAppsButton.setVisibility(View.VISIBLE);
+            } else if ("intent".equals(type)) {
+                ((RadioButton) findViewById(R.id.aliasTypeIntent)).setChecked(true);
+                aliasEditIntentButton.setVisibility(View.VISIBLE);
+                String intentJson = getIntent().getStringExtra("intentSpecJson");
+                currentIntentJson = intentJson;
+                if (intentJson != null) {
+                    aliasIntentSummary.setVisibility(View.VISIBLE);
+                    aliasIntentSummary.setText(intentJson);
+                }
             }
             String iconExtra = getIntent().getStringExtra("icon");
             if (iconExtra != null) {
@@ -89,7 +110,22 @@ public class PreferencesAliasesEachActivity extends BaseWindowActivity {
 
         typeGroup.setOnCheckedChangeListener((group, checkedId) -> {
             boolean isApp = checkedId == R.id.aliasTypeApp;
-            browseAppsButton.setVisibility(isApp ? View.VISIBLE : View.GONE);
+            boolean isIntent = checkedId == R.id.aliasTypeIntent;
+            browseAppsButton.setVisibility((isApp || isIntent) ? View.VISIBLE : View.GONE);
+            aliasEditIntentButton.setVisibility(isIntent ? View.VISIBLE : View.GONE);
+            aliasIntentSummary.setVisibility(isIntent && currentIntentJson != null ? View.VISIBLE : View.GONE);
+
+            // If user is creating a new alias and just checked Intent, open app picker to help build intent
+            if (isIntent && creatingNewAlias) {
+                creatingNewAlias = false; // avoid reopening repeatedly
+                showAppPickerDialog();
+            }
+        });
+
+        aliasEditIntentButton.setOnClickListener(v -> {
+            Intent i = new Intent(PreferencesAliasesEachActivity.this, IntentEditorActivity.class);
+            if (currentIntentJson != null) i.putExtra(IntentEditorActivity.EXTRA_INTENT_SPEC_JSON, currentIntentJson);
+            startActivityForResult(i, 4001);
         });
 
         browseAppsButton.setOnClickListener(v -> showAppPickerDialog());
@@ -122,9 +158,13 @@ public class PreferencesAliasesEachActivity extends BaseWindowActivity {
             String title = titleEdit.getText().toString().trim();
             String target = targetEdit.getText().toString().trim();
             int checkedId = typeGroup.getCheckedRadioButtonId();
-            String type = checkedId == R.id.aliasTypeApp ? "app" : "url";
+            String type;
+            if (checkedId == R.id.aliasTypeApp) type = "app";
+            else if (checkedId == R.id.aliasTypeIntent) type = "intent";
+            else type = "url";
 
-            if (kw.isEmpty() || title.isEmpty() || target.isEmpty()) {
+            if (kw.isEmpty() || title.isEmpty() || (type.equals("intent") ? false : target.isEmpty())) {
+                // For intent type, target may be empty
                 Toast.makeText(this, R.string.alias_fill_all_fields, Toast.LENGTH_SHORT).show();
                 return;
             }
@@ -134,7 +174,10 @@ public class PreferencesAliasesEachActivity extends BaseWindowActivity {
                 iconValue = "uri:" + chosenIconUri;
             }
 
-            AliasDatabase.Alias alias = new AliasDatabase.Alias(kw, title, target, type, iconValue);
+            String intentJson = null;
+            if (type.equals("intent")) intentJson = currentIntentJson;
+
+            AliasDatabase.Alias alias = new AliasDatabase.Alias(kw, title, target, type, iconValue, intentJson);
             new AliasDatabase().add(this, alias);
             setResult(RESULT_OK);
             finish();
@@ -157,6 +200,13 @@ public class PreferencesAliasesEachActivity extends BaseWindowActivity {
             try {
                 aliasIconPreview.setImageURI(Uri.parse(chosenIconUri));
             } catch (Exception ignored) {}
+        } else if (requestCode == 4001 && resultCode == RESULT_OK && data != null) {
+            String json = data.getStringExtra(IntentEditorActivity.EXTRA_INTENT_SPEC_JSON);
+            if (json != null) {
+                currentIntentJson = json;
+                aliasIntentSummary.setVisibility(View.VISIBLE);
+                aliasIntentSummary.setText(json);
+            }
         }
     }
 
@@ -249,13 +299,117 @@ public class PreferencesAliasesEachActivity extends BaseWindowActivity {
         new AlertDialog.Builder(this)
                 .setTitle(appLabel)
                 .setItems(items, (dialog, which) -> {
-                    targetEdit.setText(componentNames.get(which));
+                    String selectedComponent = componentNames.get(which);
+                    targetEdit.setText(selectedComponent);
+
                     // If using app icon mode, update preview to the selected package's icon
                     if (useAppIcon) {
-                        String sel = componentNames.get(which);
+                        String sel = selectedComponent;
                         String pkg = sel.contains("/") ? sel.split("/")[0] : sel;
                         updateIconPreviewForPackage(pkg);
                     }
+
+                    // Start discovery of supported actions/mime types on a background thread
+                    final String selComp = selectedComponent;
+                    new Thread(() -> {
+                        try {
+                            android.content.pm.PackageManager pm = getPackageManager();
+                            String pkg = selComp.contains("/") ? selComp.split("/")[0] : selComp;
+                            String cls = selComp.contains("/") ? selComp.split("/")[1] : null;
+
+                            final List<net.nhiroki.bluelineconsole.plugin.IntentSpec> discovered = new ArrayList<>();
+
+                            String[] actions = new String[]{
+                                    android.content.Intent.ACTION_MAIN,
+                                    android.content.Intent.ACTION_VIEW,
+                                    android.content.Intent.ACTION_SEND,
+                                    android.content.Intent.ACTION_SENDTO,
+                                    android.content.Intent.ACTION_EDIT,
+                                    android.content.Intent.ACTION_PICK,
+                                    android.content.Intent.ACTION_SEARCH,
+                                    android.content.Intent.ACTION_DIAL,
+                                    android.content.Intent.ACTION_CALL,
+                                    android.content.Intent.ACTION_OPEN_DOCUMENT
+                            };
+
+                            String[] mimes = new String[]{null, "text/plain", "image/*", "video/*", "audio/*", "*/*"};
+
+                            for (String action : actions) {
+                                for (String mime : mimes) {
+                                    Intent test = new Intent();
+                                    if (action != null) test.setAction(action);
+                                    if (mime != null) test.setType(mime);
+                                    if (cls != null) test.setClassName(pkg, cls);
+
+                                    List<android.content.pm.ResolveInfo> ris = pm.queryIntentActivities(test, 0);
+                                    boolean matches = false;
+                                    if (ris != null) {
+                                        for (android.content.pm.ResolveInfo ri : ris) {
+                                            if (ri.activityInfo != null && ri.activityInfo.packageName != null && ri.activityInfo.packageName.equals(pkg)) {
+                                                if (cls == null || ri.activityInfo.name.equals(cls)) {
+                                                    matches = true;
+                                                    break;
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    if (matches) {
+                                        net.nhiroki.bluelineconsole.plugin.IntentSpec spec = new net.nhiroki.bluelineconsole.plugin.IntentSpec();
+                                        spec.componentPackage = selComp;
+                                        spec.action = action;
+                                        spec.mimeType = mime;
+                                        discovered.add(spec);
+                                    }
+                                }
+                            }
+
+                            // Post results to UI thread
+                            runOnUiThread(() -> {
+                                if (discovered.isEmpty()) {
+                                    // fallback: create simple ACTION_MAIN spec
+                                    try {
+                                        net.nhiroki.bluelineconsole.plugin.IntentSpec spec = new net.nhiroki.bluelineconsole.plugin.IntentSpec();
+                                        spec.componentPackage = selComp;
+                                        spec.action = android.content.Intent.ACTION_MAIN;
+                                        String json = spec.toJson().toString();
+                                        currentIntentJson = json;
+                                        ((RadioButton) findViewById(R.id.aliasTypeIntent)).setChecked(true);
+                                        aliasEditIntentButton.setVisibility(View.VISIBLE);
+                                        aliasIntentSummary.setVisibility(View.VISIBLE);
+                                        aliasIntentSummary.setText(json);
+                                    } catch (org.json.JSONException e) { e.printStackTrace(); }
+                                    return;
+                                }
+
+                                // Show a chooser dialog of discovered intents
+                                CharSequence[] labels = new CharSequence[discovered.size()];
+                                for (int i = 0; i < discovered.size(); i++) {
+                                    net.nhiroki.bluelineconsole.plugin.IntentSpec s = discovered.get(i);
+                                    String lbl = (s.action == null ? "(no action)" : s.action) + (s.mimeType == null ? "" : " — " + s.mimeType);
+                                    labels[i] = lbl;
+                                }
+
+                                new AlertDialog.Builder(PreferencesAliasesEachActivity.this)
+                                        .setTitle(R.string.alias_picker_title)
+                                        .setItems(labels, (d2, which2) -> {
+                                            try {
+                                                net.nhiroki.bluelineconsole.plugin.IntentSpec chosen = discovered.get(which2);
+                                                String json = chosen.toJson().toString();
+                                                currentIntentJson = json;
+                                                ((RadioButton) findViewById(R.id.aliasTypeIntent)).setChecked(true);
+                                                aliasEditIntentButton.setVisibility(View.VISIBLE);
+                                                aliasIntentSummary.setVisibility(View.VISIBLE);
+                                                aliasIntentSummary.setText(json);
+                                            } catch (org.json.JSONException e) { e.printStackTrace(); }
+                                        })
+                                        .setNegativeButton(android.R.string.cancel, null)
+                                        .show();
+                            });
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        }
+                    }).start();
                 })
                 .setNegativeButton(android.R.string.cancel, null)
                 .show();

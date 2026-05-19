@@ -109,6 +109,26 @@ public class MainActivity extends BaseWindowActivity {
                 }
             });
 
+            // Preview action: show the candidate's detailed view if available
+            View previewView = null;
+            try {
+                previewView = candidate.getView(MainActivity.this);
+            } catch (Exception ignored) {}
+            if (previewView != null) {
+                final View finalPreviewView = previewView;
+                actionNames.add(getString(R.string.result_action_preview));
+                actionCallbacks.add(() -> {
+                    android.app.AlertDialog.Builder b = new android.app.AlertDialog.Builder(MainActivity.this);
+                    // ensure view has no parent
+                    if (finalPreviewView.getParent() != null) {
+                        ((android.view.ViewGroup)finalPreviewView.getParent()).removeView(finalPreviewView);
+                    }
+                    b.setView(finalPreviewView);
+                    b.setPositiveButton(android.R.string.ok, (d, w) -> {});
+                    b.show();
+                });
+            }
+
             if (candidate instanceof ContextActionProvider) {
                 List<ContextAction> contextActions = ((ContextActionProvider) candidate).getContextActions(MainActivity.this);
                 for (ContextAction action : contextActions) {

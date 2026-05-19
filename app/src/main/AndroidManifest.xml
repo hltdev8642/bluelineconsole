@@ -175,6 +175,11 @@
             android:theme="@style/AppThemeBlueLineConsole" />
 
         <activity
+            android:name=".applicationMain.IntentEditorActivity"
+            android:exported="false"
+            android:theme="@style/AppThemeBlueLineConsole" />
+
+        <activity
             android:name=".applicationMain.PreferencesAliasesEachActivity"
             android:exported="false"
             android:theme="@style/AppThemeBlueLineConsole"

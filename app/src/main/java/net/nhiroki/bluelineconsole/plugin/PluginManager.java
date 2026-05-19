@@ -44,4 +44,54 @@ public class PluginManager {
     public synchronized List<PluginDefinition> getPlugins() {
         return new ArrayList<>(plugins);
     }
+
+    public synchronized boolean installPluginFile(File src) {
+        try {
+            File dst = new File(pluginDir, src.getName());
+            java.io.FileInputStream in = new java.io.FileInputStream(src);
+            java.io.FileOutputStream out = new java.io.FileOutputStream(dst);
+            byte[] buf = new byte[4096];
+            int r;
+            while ((r = in.read(buf)) != -1) {
+                out.write(buf, 0, r);
+            }
+            in.close();
+            out.close();
+            refresh();
+            return true;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    public synchronized boolean deletePlugin(String sourceFileName) {
+        try {
+            File f = new File(pluginDir, sourceFileName);
+            boolean r = f.exists() && f.delete();
+            refresh();
+            return r;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    public synchronized File getPluginFile(PluginDefinition def) {
+        if (def == null || def.sourceFileName == null) return null;
+        return new File(pluginDir, def.sourceFileName);
+    }
+
+    public void setPluginEnabled(android.content.Context context, String sourceFileName, boolean enabled) {
+        if (sourceFileName == null) return;
+        android.content.SharedPreferences sp = androidx.preference.PreferenceManager.getDefaultSharedPreferences(context);
+        sp.edit().putBoolean("plugin_enabled_" + sourceFileName, enabled).apply();
+        refresh();
+    }
+
+    public boolean isPluginEnabled(android.content.Context context, String sourceFileName) {
+        if (sourceFileName == null) return false;
+        android.content.SharedPreferences sp = androidx.preference.PreferenceManager.getDefaultSharedPreferences(context);
+        return sp.getBoolean("plugin_enabled_" + sourceFileName, false);
+    }
 }

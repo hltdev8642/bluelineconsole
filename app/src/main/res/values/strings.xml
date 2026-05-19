@@ -24,6 +24,7 @@
     <string name="result_action_open">Open</string>
     <string name="result_action_copy_title">Copy title</string>
     <string name="result_action_copied">Copied</string>
+    <string name="result_action_preview">Preview</string>
     <string name="result_action_app_info">App Info</string>
     <string name="result_action_uninstall">Uninstall</string>
 
@@ -330,6 +331,10 @@
     <string name="alias_target_hint">URL, package name, or pkg/ActivityClass</string>
     <string name="alias_type_url">URL</string>
     <string name="alias_type_app">App</string>
+    <string name="alias_type_intent">Intent</string>
+    <string name="alias_edit_intent">Edit intent…</string>
+    <string name="intent_add_extra">Add extra</string>
+    <string name="intent_use_input_as_value">Use input as value ({query})</string>
     <string name="alias_delete_confirm">Delete this alias?</string>
     <string name="alias_fill_all_fields">Please fill all fields</string>
     <string name="alias_browse_apps">Browse Apps…</string>

@@ -13,9 +13,12 @@ import androidx.preference.PreferenceManager;
 import net.nhiroki.bluelineconsole.applicationMain.MainActivity;
 import net.nhiroki.bluelineconsole.interfaces.CandidateEntry;
 import net.nhiroki.bluelineconsole.interfaces.CommandSearcher;
+import net.nhiroki.bluelineconsole.interfaces.ContextAction;
+import net.nhiroki.bluelineconsole.interfaces.ContextActionProvider;
 import net.nhiroki.bluelineconsole.interfaces.EventLauncher;
 import net.nhiroki.bluelineconsole.plugin.PluginDefinition;
 import net.nhiroki.bluelineconsole.plugin.PluginManager;
+import net.nhiroki.bluelineconsole.plugin.PluginHost;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -102,7 +105,7 @@ public class PluginCommandSearcher implements CommandSearcher {
                     if (parameter != null && !parameter.isEmpty()) {
                         title += ": " + parameter;
                     }
-                    results.add(new PluginCandidateEntry(title, createLauncher(definition, parameter)));
+                    results.add(new PluginCandidateEntry(definition, title, PluginHost.createLauncherFromDefinition(definition.action, parameter), pluginManager));
                     break;
                 }
             }
@@ -136,6 +139,17 @@ public class PluginCommandSearcher implements CommandSearcher {
                         clipboardManager.setPrimaryClip(ClipData.newPlainText(definition.displayName, text));
                     }
                 };
+            case "intent":
+                return activity -> {
+                    try {
+                        String uriStr = definition.action.template.replace("{query}", parameter == null ? "" : parameter);
+                        Intent intent = Intent.parseUri(uriStr, Intent.URI_INTENT_SCHEME);
+                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                        activity.startActivity(intent);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                };
             case "text":
             default:
                 return activity -> {
@@ -145,13 +159,17 @@ public class PluginCommandSearcher implements CommandSearcher {
         }
     }
 
-    private static class PluginCandidateEntry implements CandidateEntry {
+    private static class PluginCandidateEntry implements CandidateEntry, ContextActionProvider {
+        private final PluginDefinition definition;
         private final String title;
         private final EventLauncher launcher;
+        private final PluginManager pluginManager;
 
-        private PluginCandidateEntry(String title, EventLauncher launcher) {
+        private PluginCandidateEntry(PluginDefinition definition, String title, EventLauncher launcher, PluginManager pm) {
+            this.definition = definition;
             this.title = title;
             this.launcher = launcher;
+            this.pluginManager = pm;
         }
 
         @Override
@@ -192,6 +210,45 @@ public class PluginCommandSearcher implements CommandSearcher {
         @Override
         public boolean viewIsRecyclable() {
             return true;
+        }
+
+        @Override
+        public List<ContextAction> getContextActions(Context context) {
+            List<ContextAction> actions = new ArrayList<>();
+
+            if (launcher != null) {
+                actions.add(new ContextAction(context.getString(net.nhiroki.bluelineconsole.R.string.result_action_open), activity -> {
+                    try {
+                        launcher.launch((MainActivity) activity);
+                    } catch (ClassCastException e) {
+                        // fallback: just show toast
+                        android.widget.Toast.makeText(activity, "Plugin executed", android.widget.Toast.LENGTH_SHORT).show();
+                    }
+                }));
+            }
+
+            actions.add(new ContextAction(context.getString(net.nhiroki.bluelineconsole.R.string.result_action_copy_title), activity -> {
+                android.content.ClipboardManager clipboardManager = (android.content.ClipboardManager) activity.getSystemService(Context.CLIPBOARD_SERVICE);
+                if (clipboardManager != null) {
+                    clipboardManager.setPrimaryClip(ClipData.newPlainText("plugin", getTitle()));
+                    android.widget.Toast.makeText(activity, net.nhiroki.bluelineconsole.R.string.result_action_copied, android.widget.Toast.LENGTH_SHORT).show();
+                }
+            }));
+
+            boolean enabled = pluginManager.isPluginEnabled(context, definition.sourceFileName);
+            actions.add(new ContextAction(enabled ? "Disable plugin" : "Enable plugin", activity -> {
+                pluginManager.setPluginEnabled(context, definition.sourceFileName, !enabled);
+                pluginManager.refresh();
+                android.widget.Toast.makeText(activity, enabled ? "Disabled" : "Enabled", android.widget.Toast.LENGTH_SHORT).show();
+            }));
+
+            actions.add(new ContextAction("Remove plugin", activity -> {
+                pluginManager.deletePlugin(definition.sourceFileName);
+                pluginManager.refresh();
+                android.widget.Toast.makeText(activity, "Removed", android.widget.Toast.LENGTH_SHORT).show();
+            }));
+
+            return actions;
         }
     }
 }
