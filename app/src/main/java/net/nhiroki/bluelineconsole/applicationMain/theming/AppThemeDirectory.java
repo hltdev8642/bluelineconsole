@@ -1,7 +1,7 @@
 package net.nhiroki.bluelineconsole.applicationMain.theming;
 
 import android.content.Context;
-import android.preference.PreferenceManager;
+import androidx.preference.PreferenceManager;
 
 import net.nhiroki.bluelineconsole.applicationMain.theming.eachTheme.BlueLineConsoleDarkTheme;
 import net.nhiroki.bluelineconsole.applicationMain.theming.eachTheme.BlueLineConsoleDefaultTheme;

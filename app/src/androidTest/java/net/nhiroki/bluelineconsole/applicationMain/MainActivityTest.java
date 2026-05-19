@@ -15,7 +15,7 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import android.os.Build;
 import android.os.LocaleList;
-import android.preference.PreferenceManager;
+import androidx.preference.PreferenceManager;
 import android.test.AndroidTestCase;
 
 import androidx.appcompat.app.AppCompatDelegate;

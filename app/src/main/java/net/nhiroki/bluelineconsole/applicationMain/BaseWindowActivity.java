@@ -3,7 +3,7 @@ package net.nhiroki.bluelineconsole.applicationMain;
 import android.animation.LayoutTransition;
 import android.annotation.SuppressLint;
 import android.os.Bundle;
-import android.preference.PreferenceManager;
+import androidx.preference.PreferenceManager;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;

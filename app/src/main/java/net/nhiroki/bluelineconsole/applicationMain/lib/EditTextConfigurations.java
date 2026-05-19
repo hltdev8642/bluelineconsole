@@ -5,7 +5,7 @@ import static android.view.inputmethod.EditorInfo.IME_FLAG_FORCE_ASCII;
 import android.content.Context;
 import android.os.Build;
 import android.os.LocaleList;
-import android.preference.PreferenceManager;
+import androidx.preference.PreferenceManager;
 import android.widget.EditText;
 
 import java.util.Locale;

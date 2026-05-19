@@ -2,7 +2,7 @@ package net.nhiroki.bluelineconsole.commands.urls;
 
 import android.content.Context;
 import android.content.SharedPreferences;
-import android.preference.PreferenceManager;
+import androidx.preference.PreferenceManager;
 import android.util.Pair;
 
 import net.nhiroki.bluelineconsole.commandSearchers.lib.StringMatchStrategy;
