@@ -6,14 +6,21 @@ import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.graphics.drawable.Drawable;
+import android.graphics.drawable.GradientDrawable;
 import android.hardware.camera2.CameraManager;
 import android.net.wifi.WifiManager;
 import android.os.Build;
 import android.provider.Settings;
+import android.util.TypedValue;
+import android.view.Gravity;
 import android.view.View;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
+import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 
+import net.nhiroki.bluelineconsole.R;
 import net.nhiroki.bluelineconsole.applicationMain.MainActivity;
 import net.nhiroki.bluelineconsole.interfaces.CandidateEntry;
 import net.nhiroki.bluelineconsole.interfaces.CommandSearcher;
@@ -29,12 +36,52 @@ public class SystemCommandSearcher implements CommandSearcher {
     private static List<SystemCommandDef> cachedBuiltIn = null;
     private static List<SystemCommandDef> cachedAppTiles = null;
 
+    // Maps command id → Settings action string used to lazily load the icon for built-in commands.
+    private static final java.util.Map<String, String> BUILT_IN_ICON_ACTIONS;
+    static {
+        BUILT_IN_ICON_ACTIONS = new java.util.HashMap<>();
+        BUILT_IN_ICON_ACTIONS.put("wifi",         Settings.ACTION_WIFI_SETTINGS);
+        BUILT_IN_ICON_ACTIONS.put("bluetooth",    Settings.ACTION_BLUETOOTH_SETTINGS);
+        BUILT_IN_ICON_ACTIONS.put("volume",       Settings.ACTION_SOUND_SETTINGS);
+        BUILT_IN_ICON_ACTIONS.put("brightness",   Settings.ACTION_DISPLAY_SETTINGS);
+        BUILT_IN_ICON_ACTIONS.put("airplane",     Settings.ACTION_AIRPLANE_MODE_SETTINGS);
+        BUILT_IN_ICON_ACTIONS.put("dnd",          Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS);
+        BUILT_IN_ICON_ACTIONS.put("mobile_data",  Settings.ACTION_NETWORK_OPERATOR_SETTINGS);
+        BUILT_IN_ICON_ACTIONS.put("hotspot",      Settings.ACTION_WIRELESS_SETTINGS);
+        BUILT_IN_ICON_ACTIONS.put("location",     Settings.ACTION_LOCATION_SOURCE_SETTINGS);
+        BUILT_IN_ICON_ACTIONS.put("nfc",          Settings.ACTION_NFC_SETTINGS);
+        BUILT_IN_ICON_ACTIONS.put("nfc_pay",      Settings.ACTION_NFC_PAYMENT_SETTINGS);
+        BUILT_IN_ICON_ACTIONS.put("auto_rotate",  Settings.ACTION_DISPLAY_SETTINGS);
+        BUILT_IN_ICON_ACTIONS.put("battery_saver",Settings.ACTION_BATTERY_SAVER_SETTINGS);
+        BUILT_IN_ICON_ACTIONS.put("dark_mode",    Settings.ACTION_DISPLAY_SETTINGS);
+        BUILT_IN_ICON_ACTIONS.put("cast",         Settings.ACTION_CAST_SETTINGS);
+        BUILT_IN_ICON_ACTIONS.put("sync",         Settings.ACTION_SYNC_SETTINGS);
+        BUILT_IN_ICON_ACTIONS.put("data_usage",   Settings.ACTION_DATA_ROAMING_SETTINGS);
+        BUILT_IN_ICON_ACTIONS.put("accessibility",Settings.ACTION_ACCESSIBILITY_SETTINGS);
+        BUILT_IN_ICON_ACTIONS.put("vpn",          Settings.ACTION_VPN_SETTINGS);
+        BUILT_IN_ICON_ACTIONS.put("notifications","android.settings.NOTIFICATION_SETTINGS");
+        BUILT_IN_ICON_ACTIONS.put("privacy",      Settings.ACTION_PRIVACY_SETTINGS);
+        BUILT_IN_ICON_ACTIONS.put("security",     Settings.ACTION_SECURITY_SETTINGS);
+        BUILT_IN_ICON_ACTIONS.put("storage",      Settings.ACTION_INTERNAL_STORAGE_SETTINGS);
+        BUILT_IN_ICON_ACTIONS.put("language",     Settings.ACTION_LOCALE_SETTINGS);
+        BUILT_IN_ICON_ACTIONS.put("datetime",     Settings.ACTION_DATE_SETTINGS);
+        BUILT_IN_ICON_ACTIONS.put("developer",    Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS);
+        BUILT_IN_ICON_ACTIONS.put("apps",         Settings.ACTION_MANAGE_APPLICATIONS_SETTINGS);
+        BUILT_IN_ICON_ACTIONS.put("network",      Settings.ACTION_NETWORK_OPERATOR_SETTINGS);
+        BUILT_IN_ICON_ACTIONS.put("screensaver",  Settings.ACTION_DREAM_SETTINGS);
+        BUILT_IN_ICON_ACTIONS.put("home_settings",Settings.ACTION_HOME_SETTINGS);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            BUILT_IN_ICON_ACTIONS.put("default_apps", Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS);
+        }
+    }
+
     public static class SystemCommandDef {
         public final String id;
         public final String title;
         public final String[] keywords;
         public final boolean isBuiltIn;
         final EventLauncher action;
+        volatile Drawable cachedIcon;
 
         public SystemCommandDef(String id, String title, String[] keywords, boolean isBuiltIn, EventLauncher action) {
             this.id = id;
@@ -42,6 +89,20 @@ public class SystemCommandSearcher implements CommandSearcher {
             this.keywords = keywords;
             this.isBuiltIn = isBuiltIn;
             this.action = action;
+            this.cachedIcon = null;
+        }
+
+        /** Loads and caches the icon for this command. Returns null if unavailable. */
+        public Drawable loadIcon(Context context) {
+            if (cachedIcon != null) return cachedIcon;
+            String action = BUILT_IN_ICON_ACTIONS.get(id);
+            if (action == null) return null;
+            try {
+                PackageManager pm = context.getPackageManager();
+                ResolveInfo ri = pm.resolveActivity(new Intent(action), 0);
+                if (ri != null) cachedIcon = ri.loadIcon(pm);
+            } catch (Exception ignored) {}
+            return cachedIcon;
         }
     }
 
@@ -314,17 +375,19 @@ public class SystemCommandSearcher implements CommandSearcher {
                 String pkg = info.serviceInfo.packageName;
                 String svcName = info.serviceInfo.name;
                 String label = info.loadLabel(pm).toString();
-                // Stable ID: use package + service class
                 String id = "apptile_" + pkg + "/" + svcName;
                 String keyword = label.toLowerCase();
-                list.add(new SystemCommandDef(id, label + " (Tile)", new String[]{keyword}, false, activity -> {
+                SystemCommandDef cmd = new SystemCommandDef(id, label + " (Tile)", new String[]{keyword}, false, activity -> {
                     Intent launchIntent = pm.getLaunchIntentForPackage(pkg);
                     if (launchIntent != null) {
                         launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                         activity.startActivity(launchIntent);
                         activity.finishIfNotHome();
                     }
-                }));
+                });
+                // Eagerly load the tile's icon from its ServiceInfo
+                try { cmd.cachedIcon = info.loadIcon(pm); } catch (Exception ignored) {}
+                list.add(cmd);
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -358,13 +421,13 @@ public class SystemCommandSearcher implements CommandSearcher {
         for (SystemCommandDef cmd : getBuiltInCommandDefs()) {
             if (!prefs.getBoolean("syscmd_" + cmd.id, true)) continue;
             if (keywordMatches(q, cmd.keywords)) {
-                candidates.add(new SystemEntry(cmd.title, cmd.action));
+                candidates.add(new QSTileEntry(cmd));
             }
         }
         for (SystemCommandDef cmd : getAppTileCommandDefs(context)) {
             if (!prefs.getBoolean("syscmd_" + cmd.id, true)) continue;
             if (keywordMatches(q, cmd.keywords)) {
-                candidates.add(new SystemEntry(cmd.title, cmd.action));
+                candidates.add(new QSTileEntry(cmd));
             }
         }
         return candidates;
@@ -377,22 +440,76 @@ public class SystemCommandSearcher implements CommandSearcher {
         return false;
     }
 
-    private static class SystemEntry implements CandidateEntry {
-        private final String title;
-        private final EventLauncher launcher;
+    /**
+     * Tile card entry — renders like a QS tile (icon + label in a tappable card),
+     * analogous to how WidgetCommandSearcher embeds live widget views.
+     */
+    private static class QSTileEntry implements CandidateEntry {
+        private final SystemCommandDef cmd;
 
-        SystemEntry(String title, EventLauncher launcher) {
-            this.title = title;
-            this.launcher = launcher;
-        }
+        QSTileEntry(SystemCommandDef cmd) { this.cmd = cmd; }
 
-        @Override public String getTitle() { return title; }
-        @Override public View getView(MainActivity a) { return null; }
+        @Override public String getTitle() { return null; }
         @Override public boolean hasLongView() { return false; }
-        @Override public boolean hasEvent() { return true; }
-        @Override public EventLauncher getEventLauncher(Context c) { return launcher; }
+        @Override public boolean hasEvent() { return false; }
+        @Override public EventLauncher getEventLauncher(Context c) { return null; }
         @Override public Drawable getIcon(Context c) { return null; }
         @Override public boolean isSubItem() { return false; }
-        @Override public boolean viewIsRecyclable() { return true; }
+        @Override public boolean viewIsRecyclable() { return false; }
+
+        @Override
+        public View getView(MainActivity activity) {
+            final float dp = activity.getResources().getDisplayMetrics().density;
+
+            // Outer card
+            LinearLayout card = new LinearLayout(activity);
+            card.setOrientation(LinearLayout.HORIZONTAL);
+            card.setGravity(Gravity.CENTER_VERTICAL);
+            int pad = (int)(14 * dp);
+            card.setPadding(pad, pad, pad, pad);
+            card.setClickable(true);
+            card.setFocusable(true);
+
+            GradientDrawable bg = new GradientDrawable();
+            bg.setCornerRadius(12 * dp);
+            TypedValue tv = new TypedValue();
+            if (activity.getTheme().resolveAttribute(R.attr.bluelineconsoleSecondaryWindowBackground, tv, true)) {
+                bg.setColor(tv.data);
+            } else {
+                bg.setColor(0x22888888);
+            }
+            card.setBackground(bg);
+
+            // Icon
+            ImageView iconView = new ImageView(activity);
+            int iconSize = (int)(36 * dp);
+            LinearLayout.LayoutParams iconLP = new LinearLayout.LayoutParams(iconSize, iconSize);
+            iconLP.gravity = Gravity.CENTER_VERTICAL;
+            iconLP.setMarginEnd((int)(14 * dp));
+            iconView.setLayoutParams(iconLP);
+            iconView.setScaleType(ImageView.ScaleType.FIT_CENTER);
+            Drawable icon = cmd.loadIcon(activity);
+            if (icon != null) iconView.setImageDrawable(icon);
+            card.addView(iconView);
+
+            // Label
+            TextView label = new TextView(activity);
+            label.setText(cmd.title);
+            label.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
+            TypedValue colorTv = new TypedValue();
+            if (activity.getTheme().resolveAttribute(R.attr.bluelineconsoleBaseTextColor, colorTv, true)) {
+                label.setTextColor(colorTv.data);
+            }
+            LinearLayout.LayoutParams labelLP = new LinearLayout.LayoutParams(
+                    0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+            labelLP.gravity = Gravity.CENTER_VERTICAL;
+            label.setLayoutParams(labelLP);
+            card.addView(label);
+
+            // Tap → run the tile action
+            card.setOnClickListener(v -> cmd.action.launch(activity));
+
+            return card;
+        }
     }
 }
