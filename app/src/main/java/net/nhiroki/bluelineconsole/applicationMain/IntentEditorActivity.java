@@ -31,6 +31,10 @@ public class IntentEditorActivity extends BaseWindowActivity {
     private ArrayAdapter<String> extrasAdapter;
     private final List<IntentSpec.Extra> extras = new ArrayList<>();
 
+    private ListView categoriesListView;
+    private ArrayAdapter<String> categoriesAdapter;
+    private final List<String> categories = new ArrayList<>();
+
     public IntentEditorActivity() { super(R.layout.preferences_intent_editor_body, false); }
 
     @Override
@@ -51,6 +55,140 @@ public class IntentEditorActivity extends BaseWindowActivity {
         Button addExtraButton = findViewById(R.id.intentAddExtraButton);
         addExtraButton.setOnClickListener(v -> showAddExtraDialog());
 
+        categoriesListView = findViewById(R.id.intentCategoriesListView);
+        categoriesAdapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, new ArrayList<>());
+        categoriesListView.setAdapter(categoriesAdapter);
+        Button addCategoryButton = findViewById(R.id.intentAddCategoryButton);
+        addCategoryButton.setOnClickListener(v -> showAddCategoryDialog());
+
+        // Discover button to probe supported actions/mime types for the specified component
+        Button discoverButton = findViewById(R.id.intentDiscoverButton);
+        discoverButton.setOnClickListener(v -> {
+            String comp = componentEdit.getText().toString().trim();
+            if (comp.isEmpty()) {
+                Toast.makeText(this, "Specify component (package/class) first", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            // Run discovery off the UI thread
+            new Thread(() -> {
+                try {
+                    android.content.pm.PackageManager pm = getPackageManager();
+                    String pkg = comp.contains("/") ? comp.split("/")[0] : comp;
+                    String cls = comp.contains("/") ? comp.split("/")[1] : null;
+
+                    final List<net.nhiroki.bluelineconsole.plugin.IntentSpec> discovered = new ArrayList<>();
+
+                    String[] actions = new String[]{
+                            android.content.Intent.ACTION_MAIN,
+                            android.content.Intent.ACTION_VIEW,
+                            android.content.Intent.ACTION_SEND,
+                            android.content.Intent.ACTION_SENDTO,
+                            android.content.Intent.ACTION_EDIT,
+                            android.content.Intent.ACTION_PICK,
+                            android.content.Intent.ACTION_SEARCH,
+                            android.content.Intent.ACTION_DIAL,
+                            android.content.Intent.ACTION_CALL,
+                            android.content.Intent.ACTION_OPEN_DOCUMENT
+                    };
+
+                    String[] mimes = new String[]{null, "text/plain", "image/*", "video/*", "audio/*", "*/*"};
+
+                    for (String action : actions) {
+                        for (String mime : mimes) {
+                            Intent test = new Intent();
+                            if (action != null) test.setAction(action);
+                            if (mime != null) test.setType(mime);
+                            if (cls != null) test.setClassName(pkg, cls);
+
+                            List<android.content.pm.ResolveInfo> ris = pm.queryIntentActivities(test, 0);
+                            boolean matches = false;
+                            if (ris != null) {
+                                for (android.content.pm.ResolveInfo ri : ris) {
+                                    if (ri.activityInfo != null && ri.activityInfo.packageName != null && ri.activityInfo.packageName.equals(pkg)) {
+                                        if (cls == null || ri.activityInfo.name.equals(cls)) {
+                                            matches = true;
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+
+                            if (matches) {
+                                net.nhiroki.bluelineconsole.plugin.IntentSpec spec = new net.nhiroki.bluelineconsole.plugin.IntentSpec();
+                                spec.componentPackage = comp;
+                                spec.action = action;
+                                spec.mimeType = mime;
+                                discovered.add(spec);
+                            }
+                        }
+                    }
+
+                    runOnUiThread(() -> {
+                        if (discovered.isEmpty()) {
+                            Toast.makeText(this, "No discovered actions/mime for component", Toast.LENGTH_SHORT).show();
+                            return;
+                        }
+
+                        CharSequence[] labels = new CharSequence[discovered.size()];
+                        for (int i = 0; i < discovered.size(); i++) {
+                            net.nhiroki.bluelineconsole.plugin.IntentSpec s = discovered.get(i);
+                            String lbl = (s.action == null ? "(no action)" : s.action) + (s.mimeType == null ? "" : " — " + s.mimeType);
+                            labels[i] = lbl;
+                        }
+
+                        new AlertDialog.Builder(IntentEditorActivity.this)
+                                .setTitle("Discovered actions / mime types")
+                                .setItems(labels, (d2, which2) -> {
+                                    net.nhiroki.bluelineconsole.plugin.IntentSpec chosen = discovered.get(which2);
+                                    // Offer to set as action/mime or add as category
+                                    String choice = "Set action/mime";
+                                    String addAsCat = "Add as category/action";
+                                    new AlertDialog.Builder(IntentEditorActivity.this)
+                                            .setItems(new CharSequence[]{choice, addAsCat}, (d3, which3) -> {
+                                                if (which3 == 0) {
+                                                    actionEdit.setText(chosen.action == null ? "" : chosen.action);
+                                                    mimeTypeEdit.setText(chosen.mimeType == null ? "" : chosen.mimeType);
+                                                } else {
+                                                    String candidate = chosen.action == null ? (chosen.mimeType == null ? "" : chosen.mimeType) : chosen.action;
+                                                    if (candidate == null || candidate.isEmpty()) return;
+                                                    // validate format before adding
+                                                    if (!isValidCategoryFormat(candidate)) {
+                                                        new AlertDialog.Builder(IntentEditorActivity.this)
+                                                                .setTitle("Unusual format")
+                                                                .setMessage("The value does not look like a typical action/category. Add anyway?")
+                                                                .setPositiveButton(android.R.string.ok, (dd, ww) -> { categories.add(candidate); refreshCategoriesList(); })
+                                                                .setNegativeButton(android.R.string.cancel, null)
+                                                                .show();
+                                                    } else {
+                                                        categories.add(candidate);
+                                                        refreshCategoriesList();
+                                                    }
+                                                }
+                                            })
+                                            .show();
+                                })
+                                .setNegativeButton(android.R.string.cancel, null)
+                                .show();
+                    });
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    runOnUiThread(() -> Toast.makeText(this, "Discovery failed", Toast.LENGTH_SHORT).show());
+                }
+            }).start();
+        });
+
+        // Long-press to remove categories
+        categoriesListView.setOnItemLongClickListener((parent, view, position, id) -> {
+            String item = categories.get(position);
+            new AlertDialog.Builder(this)
+                    .setTitle("Remove")
+                    .setMessage("Remove '" + item + "'?" )
+                    .setPositiveButton(android.R.string.ok, (d, w) -> { categories.remove(position); refreshCategoriesList(); })
+                    .setNegativeButton(android.R.string.cancel, null)
+                    .show();
+            return true;
+        });
+
         Button saveButton = findViewById(R.id.intentSaveButton);
         saveButton.setOnClickListener(v -> {
             IntentSpec spec = new IntentSpec();
@@ -64,6 +202,7 @@ public class IntentEditorActivity extends BaseWindowActivity {
                 for (String f: fs) spec.flags.add(f.trim());
             }
             spec.extras.addAll(extras);
+            spec.categories.addAll(categories);
             try {
                 String json = spec.toJson().toString();
                 Intent i = new Intent();
@@ -96,6 +235,11 @@ public class IntentEditorActivity extends BaseWindowActivity {
                         extras.addAll(spec.extras);
                         refreshExtrasList();
                     }
+                    if (spec.categories != null) {
+                        categories.clear();
+                        categories.addAll(spec.categories);
+                        refreshCategoriesList();
+                    }
                 }
             } catch (Exception e) { e.printStackTrace(); }
         }
@@ -105,6 +249,10 @@ public class IntentEditorActivity extends BaseWindowActivity {
         List<String> items = new ArrayList<>();
         for (IntentSpec.Extra e: extras) items.add(e.key + " (" + e.type + ") = " + e.value);
         extrasAdapter.clear(); extrasAdapter.addAll(items); extrasAdapter.notifyDataSetChanged();
+    }
+
+    private void refreshCategoriesList() {
+        categoriesAdapter.clear(); categoriesAdapter.addAll(categories); categoriesAdapter.notifyDataSetChanged();
     }
 
     private void showAddExtraDialog() {
@@ -138,6 +286,42 @@ public class IntentEditorActivity extends BaseWindowActivity {
                     if (!ex.key.isEmpty()) {
                         extras.add(ex);
                         refreshExtrasList();
+                    }
+                })
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
+    }
+
+    private boolean isValidCategoryFormat(String txt) {
+        if (txt == null) return false;
+        txt = txt.trim();
+        if (txt.isEmpty()) return false;
+        if (txt.startsWith("android.intent.")) return true;
+        if (txt.contains(".")) return true; // package-like
+        if (txt.contains("/")) return true; // component-like
+        return false;
+    }
+
+    private void showAddCategoryDialog() {
+        View v = getLayoutInflater().inflate(android.R.layout.simple_list_item_1, null);
+        final EditText input = new EditText(this);
+        input.setHint("e.g. com.mixplore.ACTION_OPEN_FOLDER");
+        new AlertDialog.Builder(this)
+                .setTitle("Add category/action")
+                .setView(input)
+                .setPositiveButton(android.R.string.ok, (d, w) -> {
+                    String txt = input.getText().toString().trim();
+                    if (txt.isEmpty()) return;
+                    if (!isValidCategoryFormat(txt)) {
+                        new AlertDialog.Builder(this)
+                                .setTitle("Unusual format")
+                                .setMessage("The value does not look like a typical action/category. Add anyway?")
+                                .setPositiveButton(android.R.string.ok, (dd, ww) -> { categories.add(txt); refreshCategoriesList(); })
+                                .setNegativeButton(android.R.string.cancel, null)
+                                .show();
+                    } else {
+                        categories.add(txt);
+                        refreshCategoriesList();
                     }
                 })
                 .setNegativeButton(android.R.string.cancel, null)

@@ -22,6 +22,14 @@ import net.nhiroki.bluelineconsole.dataStore.persistent.AliasDatabase;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.LinkedHashSet;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.io.InputStream;
+import java.util.regex.Pattern;
+import java.util.regex.Matcher;
 import android.graphics.drawable.Drawable;
 
 public class PreferencesAliasesEachActivity extends BaseWindowActivity {
@@ -319,22 +327,55 @@ public class PreferencesAliasesEachActivity extends BaseWindowActivity {
 
                             final List<net.nhiroki.bluelineconsole.plugin.IntentSpec> discovered = new ArrayList<>();
 
-                            String[] actions = new String[]{
-                                    android.content.Intent.ACTION_MAIN,
-                                    android.content.Intent.ACTION_VIEW,
-                                    android.content.Intent.ACTION_SEND,
-                                    android.content.Intent.ACTION_SENDTO,
-                                    android.content.Intent.ACTION_EDIT,
-                                    android.content.Intent.ACTION_PICK,
-                                    android.content.Intent.ACTION_SEARCH,
-                                    android.content.Intent.ACTION_DIAL,
-                                    android.content.Intent.ACTION_CALL,
-                                    android.content.Intent.ACTION_OPEN_DOCUMENT
-                            };
+                            List<String> actionsList = new ArrayList<>();
+                            // Common Android actions
+                            actionsList.add(android.content.Intent.ACTION_MAIN);
+                            actionsList.add(android.content.Intent.ACTION_VIEW);
+                            actionsList.add(android.content.Intent.ACTION_SEND);
+                            actionsList.add(android.content.Intent.ACTION_SENDTO);
+                            actionsList.add(android.content.Intent.ACTION_EDIT);
+                            actionsList.add(android.content.Intent.ACTION_PICK);
+                            actionsList.add(android.content.Intent.ACTION_SEARCH);
+                            actionsList.add(android.content.Intent.ACTION_DIAL);
+                            actionsList.add(android.content.Intent.ACTION_CALL);
+                            actionsList.add(android.content.Intent.ACTION_OPEN_DOCUMENT);
+
+                            // Heuristics: package-specific action patterns
+                            String pkgPref = pkg;
+                            if (pkgPref != null && !pkgPref.isEmpty()) {
+                                actionsList.add(pkgPref + ".ACTION_OPEN");
+                                actionsList.add(pkgPref + ".ACTION_OPEN_FOLDER");
+                                actionsList.add(pkgPref + ".ACTION_VIEW");
+                                actionsList.add(pkgPref + ".VIEW");
+                                actionsList.add(pkgPref + ".action.OPEN");
+                                actionsList.add(pkgPref + ".action.VIEW");
+                                if (cls != null && !cls.isEmpty()) {
+                                    String simpleCls = cls.contains(".") ? cls.substring(cls.lastIndexOf('.')+1) : cls;
+                                    actionsList.add(pkgPref + "." + simpleCls + ".ACTION");
+                                    actionsList.add(pkgPref + "." + simpleCls + ".VIEW");
+                                }
+                            }
+
+                            // Attempt to parse pm dump for exact intent-filters (may require shell permissions)
+                            List<String> pmActions = parsePmDumpForActions(pkg);
+                            if (pmActions != null && !pmActions.isEmpty()) {
+                                // prepend pmActions to the list so exact actions are tried first
+                                List<String> merged = new ArrayList<>();
+                                merged.addAll(pmActions);
+                                merged.addAll(actionsList);
+                                actionsList = merged;
+                            }
+
+                            // Deduplicate while preserving order
+                            Set<String> seen = new HashSet<>();
+                            List<String> finalActions = new ArrayList<>();
+                            for (String a : actionsList) {
+                                if (a != null && !a.isEmpty() && !seen.contains(a)) { seen.add(a); finalActions.add(a); }
+                            }
 
                             String[] mimes = new String[]{null, "text/plain", "image/*", "video/*", "audio/*", "*/*"};
 
-                            for (String action : actions) {
+                            for (String action : finalActions) {
                                 for (String mime : mimes) {
                                     Intent test = new Intent();
                                     if (action != null) test.setAction(action);
@@ -413,6 +454,53 @@ public class PreferencesAliasesEachActivity extends BaseWindowActivity {
                 })
                 .setNegativeButton(android.R.string.cancel, null)
                 .show();
+    }
+
+    private List<String> parsePmDumpForActions(String pkg) {
+        if (pkg == null || pkg.isEmpty()) return null;
+        try {
+            Process p = Runtime.getRuntime().exec(new String[]{"sh","-c","pm dump " + pkg});
+            BufferedReader br = new BufferedReader(new InputStreamReader(p.getInputStream()));
+            String line;
+            List<String> found = new ArrayList<>();
+            while ((line = br.readLine()) != null) {
+                if (line.toLowerCase().contains("filter")) {
+                    StringBuilder block = new StringBuilder();
+                    for (int i = 0; i < 20; i++) {
+                        String l = br.readLine();
+                        if (l == null) break;
+                        block.append(l).append('\n');
+                    }
+                    String b = block.toString();
+                    // extract tokens in single quotes first
+                    Pattern p1 = Pattern.compile("'([^']+)'");
+                    Matcher m1 = p1.matcher(b);
+                    while (m1.find()) {
+                        String tok = m1.group(1);
+                        if (tok != null && (tok.contains(".") || tok.contains("/"))) found.add(tok);
+                    }
+                    // also try action=NAME patterns
+                    Pattern p2 = Pattern.compile("action=([^\\s,]+)");
+                    Matcher m2 = p2.matcher(b);
+                    while (m2.find()) {
+                        String tok = m2.group(1);
+                        if (tok != null) found.add(tok);
+                    }
+                    // mime patterns like type=... or mime=...
+                    Pattern p3 = Pattern.compile("(mime|type)=([^\\s,]+)");
+                    Matcher m3 = p3.matcher(b);
+                    while (m3.find()) {
+                        String tok = m3.group(2);
+                        if (tok != null && tok.contains("/")) found.add(tok);
+                    }
+                }
+            }
+            // dedupe preserving order
+            LinkedHashSet<String> set = new LinkedHashSet<>(found);
+            return new ArrayList<>(set);
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     private void updateIconPreviewForPackage(String packageName) {

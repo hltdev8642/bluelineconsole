@@ -18,6 +18,11 @@
         <ListView android:id="@+id/intentExtrasListView" android:layout_width="match_parent" android:layout_height="120dp" />
         <Button android:id="@+id/intentAddExtraButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Add extra" />
 
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Categories / Additional actions" android:paddingTop="8dp" />
+        <Button android:id="@+id/intentDiscoverButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Discover actions/mime for component" />
+        <ListView android:id="@+id/intentCategoriesListView" android:layout_width="match_parent" android:layout_height="100dp" />
+        <Button android:id="@+id/intentAddCategoryButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Add category/action" />
+
         <Button android:id="@+id/intentSaveButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Save" android:layout_marginTop="16dp" />
     </LinearLayout>
 </ScrollView>

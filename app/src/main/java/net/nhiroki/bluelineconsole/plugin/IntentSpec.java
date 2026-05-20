@@ -17,6 +17,7 @@ public class IntentSpec {
     public String mimeType;
     public List<String> flags = new ArrayList<>();
     public List<Extra> extras = new ArrayList<>();
+    public List<String> categories = new ArrayList<>();
     public String componentPackage; // optional package/class like package/class
 
     public static class Extra {
@@ -42,6 +43,9 @@ public class IntentSpec {
             ex.put(eo);
         }
         o.put("extras", ex);
+        JSONArray ca = new JSONArray();
+        for (String c: categories) ca.put(c);
+        o.put("categories", ca);
         o.put("componentPackage", componentPackage == null ? JSONObject.NULL : componentPackage);
         return o;
     }
@@ -67,6 +71,10 @@ public class IntentSpec {
                 e.value = eo.getString("value");
                 spec.extras.add(e);
             }
+        }
+        if (o.has("categories")) {
+            JSONArray ca = o.getJSONArray("categories");
+            for (int i = 0; i < ca.length(); i++) spec.categories.add(ca.getString(i));
         }
         spec.componentPackage = o.has("componentPackage") && !o.isNull("componentPackage") ? o.getString("componentPackage") : null;
         return spec;
@@ -112,6 +120,12 @@ public class IntentSpec {
             }
         }
         if (!b.isEmpty()) intent.putExtras(b);
+
+        if (categories != null && !categories.isEmpty()) {
+            for (String c: categories) {
+                try { intent.addCategory(replaceQuery(c, queryReplacement)); } catch (Exception ignored) {}
+            }
+        }
 
         if (componentPackage != null && componentPackage.contains("/")) {
             String[] parts = componentPackage.split("/");
