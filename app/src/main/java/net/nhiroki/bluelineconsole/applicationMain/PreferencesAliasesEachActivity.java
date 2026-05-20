@@ -255,10 +255,20 @@ public class PreferencesAliasesEachActivity extends BaseWindowActivity {
 
     private void showAppDialog(List<String> labels, List<String> packageNames) {
         if (isFinishing()) return;
-        String[] items = labels.toArray(new String[0]);
+        // Prepend a quick action to search activities by keyword across all installed apps
+        String[] items = new String[labels.size() + 1];
+        items[0] = "Search activities by keyword...";
+        for (int i = 0; i < labels.size(); i++) items[i+1] = labels.get(i);
         new AlertDialog.Builder(this)
                 .setTitle(R.string.alias_picker_title)
-                .setItems(items, (dialog, which) -> showActivityDialog(labels.get(which), packageNames.get(which)))
+                .setItems(items, (dialog, which) -> {
+                    if (which == 0) {
+                        showActivitySearchDialog();
+                    } else {
+                        int idx = which - 1;
+                        showActivityDialog(labels.get(idx), packageNames.get(idx));
+                    }
+                })
                 .setNegativeButton(android.R.string.cancel, null)
                 .show();
     }
@@ -267,21 +277,22 @@ public class PreferencesAliasesEachActivity extends BaseWindowActivity {
         if (isFinishing()) return;
         final List<String> activityLabels = new ArrayList<>();
         final List<String> componentNames = new ArrayList<>();
+        final List<Boolean> exportedFlags = new ArrayList<>();
         try {
             PackageManager pm = getPackageManager();
             PackageInfo pi = pm.getPackageInfo(packageName, PackageManager.GET_ACTIVITIES);
             if (pi.activities != null) {
                 for (ActivityInfo ai : pi.activities) {
-                    if (ai.exported) {
-                        String actLabel;
-                        if (ai.labelRes != 0) {
-                            actLabel = ai.loadLabel(pm).toString() + "\n" + ai.name;
-                        } else {
-                            actLabel = ai.name;
-                        }
-                        activityLabels.add(actLabel);
-                        componentNames.add(ai.packageName + "/" + ai.name);
+                    String actLabel;
+                    if (ai.labelRes != 0) {
+                        try { actLabel = ai.loadLabel(pm).toString() + "\n" + ai.name; } catch (Exception ex) { actLabel = ai.name; }
+                    } else {
+                        actLabel = ai.name;
                     }
+                    if (!ai.exported) actLabel = actLabel + " (non-exported)";
+                    activityLabels.add(actLabel);
+                    componentNames.add(ai.packageName + "/" + ai.name);
+                    exportedFlags.add(ai.exported);
                 }
             }
         } catch (Exception e) {
@@ -294,6 +305,7 @@ public class PreferencesAliasesEachActivity extends BaseWindowActivity {
                 if (li != null && li.getComponent() != null) {
                     activityLabels.add(appLabel);
                     componentNames.add(packageName + "/" + li.getComponent().getClassName());
+                    exportedFlags.add(true);
                 }
             } catch (Exception e) {
                 e.printStackTrace();
@@ -302,147 +314,210 @@ public class PreferencesAliasesEachActivity extends BaseWindowActivity {
         if (componentNames.isEmpty()) {
             componentNames.add(packageName);
             activityLabels.add(appLabel + " (package)");
+            exportedFlags.add(true);
         }
-        String[] items = activityLabels.toArray(new String[0]);
+
+        // Prepend a search shortcut at the top
+        String[] items = new String[activityLabels.size() + 1];
+        items[0] = "Search activities by keyword...";
+        for (int i = 0; i < activityLabels.size(); i++) items[i+1] = activityLabels.get(i);
+
         new AlertDialog.Builder(this)
                 .setTitle(appLabel)
                 .setItems(items, (dialog, which) -> {
-                    String selectedComponent = componentNames.get(which);
-                    targetEdit.setText(selectedComponent);
+                    if (which == 0) {
+                        showActivitySearchDialog();
+                        return;
+                    }
+                    int idx = which - 1;
+                    String selectedComponent = componentNames.get(idx);
+                    boolean exported = exportedFlags.get(idx);
 
-                    // If using app icon mode, update preview to the selected package's icon
-                    if (useAppIcon) {
-                        String sel = selectedComponent;
-                        String pkg = sel.contains("/") ? sel.split("/")[0] : sel;
-                        updateIconPreviewForPackage(pkg);
+                    if (!exported) {
+                        // warn user selecting non-exported activity may not be launchable
+                        new AlertDialog.Builder(this)
+                                .setTitle("Non-exported activity")
+                                .setMessage("The activity you selected is not exported from the app. Launching it may fail. Add as alias anyway?")
+                                .setPositiveButton(android.R.string.ok, (d, w) -> {
+                                    applySelectedActivity(selectedComponent);
+                                })
+                                .setNegativeButton(android.R.string.cancel, null)
+                                .show();
+                    } else {
+                        applySelectedActivity(selectedComponent);
+                    }
+                })
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
+    }
+
+    private void applySelectedActivity(String selectedComponent) {
+        targetEdit.setText(selectedComponent);
+
+        // If using app icon mode, update preview to the selected package's icon
+        if (useAppIcon) {
+            String sel = selectedComponent;
+            String pkg = sel.contains("/") ? sel.split("/")[0] : sel;
+            updateIconPreviewForPackage(pkg);
+        }
+
+        startDiscoveryForComponent(selectedComponent);
+    }
+
+    private void startDiscoveryForComponent(String selComp) {
+        // Start discovery of supported actions/mime types on a background thread
+        new Thread(() -> {
+            try {
+                android.content.pm.PackageManager pm = getPackageManager();
+                String pkg = selComp.contains("/") ? selComp.split("/")[0] : selComp;
+                String cls = selComp.contains("/") ? selComp.split("/")[1] : null;
+
+                final List<net.nhiroki.bluelineconsole.plugin.IntentSpec> discovered = new ArrayList<>();
+
+                // Try pm dump parsing first
+                List<String> pmActions = parsePmDumpForActions(pkg);
+                List<String> actionsList = new ArrayList<>();
+                if (pmActions != null && !pmActions.isEmpty()) actionsList.addAll(pmActions);
+
+                // Fallback/common actions
+                actionsList.add(android.content.Intent.ACTION_MAIN);
+                actionsList.add(android.content.Intent.ACTION_VIEW);
+                actionsList.add(android.content.Intent.ACTION_SEND);
+                actionsList.add(android.content.Intent.ACTION_SENDTO);
+                actionsList.add(android.content.Intent.ACTION_EDIT);
+                actionsList.add(android.content.Intent.ACTION_PICK);
+                actionsList.add(android.content.Intent.ACTION_SEARCH);
+                actionsList.add(android.content.Intent.ACTION_DIAL);
+                actionsList.add(android.content.Intent.ACTION_CALL);
+                actionsList.add(android.content.Intent.ACTION_OPEN_DOCUMENT);
+
+                String[] mimes = new String[]{null, "text/plain", "image/*", "video/*", "audio/*", "*/*"};
+
+                for (String action : actionsList) {
+                    for (String mime : mimes) {
+                        Intent test = new Intent();
+                        if (action != null) test.setAction(action);
+                        if (mime != null) test.setType(mime);
+                        if (cls != null) test.setClassName(pkg, cls);
+
+                        List<android.content.pm.ResolveInfo> ris = pm.queryIntentActivities(test, 0);
+                        boolean matches = false;
+                        if (ris != null) {
+                            for (android.content.pm.ResolveInfo ri : ris) {
+                                if (ri.activityInfo != null && ri.activityInfo.packageName != null && ri.activityInfo.packageName.equals(pkg)) {
+                                    if (cls == null || ri.activityInfo.name.equals(cls)) {
+                                        matches = true;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+
+                        if (matches) {
+                            net.nhiroki.bluelineconsole.plugin.IntentSpec spec = new net.nhiroki.bluelineconsole.plugin.IntentSpec();
+                            spec.componentPackage = selComp;
+                            spec.action = action;
+                            spec.mimeType = mime;
+                            discovered.add(spec);
+                        }
+                    }
+                }
+
+                // Post results to UI thread
+                runOnUiThread(() -> {
+                    if (discovered.isEmpty()) {
+                        // fallback: create simple ACTION_MAIN spec
+                        try {
+                            net.nhiroki.bluelineconsole.plugin.IntentSpec spec = new net.nhiroki.bluelineconsole.plugin.IntentSpec();
+                            spec.componentPackage = selComp;
+                            spec.action = android.content.Intent.ACTION_MAIN;
+                            String json = spec.toJson().toString();
+                            currentIntentJson = json;
+                            ((RadioButton) findViewById(R.id.aliasTypeIntent)).setChecked(true);
+                            aliasEditIntentButton.setVisibility(View.VISIBLE);
+                            aliasIntentSummary.setVisibility(View.VISIBLE);
+                            aliasIntentSummary.setText(json);
+                        } catch (org.json.JSONException e) { e.printStackTrace(); }
+                        return;
                     }
 
-                    // Start discovery of supported actions/mime types on a background thread
-                    final String selComp = selectedComponent;
+                    // Show a chooser dialog of discovered intents
+                    CharSequence[] labels = new CharSequence[discovered.size()];
+                    for (int i = 0; i < discovered.size(); i++) {
+                        net.nhiroki.bluelineconsole.plugin.IntentSpec s = discovered.get(i);
+                        String lbl = (s.action == null ? "(no action)" : s.action) + (s.mimeType == null ? "" : " — " + s.mimeType);
+                        labels[i] = lbl;
+                    }
+
+                    new AlertDialog.Builder(PreferencesAliasesEachActivity.this)
+                            .setTitle(R.string.alias_picker_title)
+                            .setItems(labels, (d2, which2) -> {
+                                try {
+                                    net.nhiroki.bluelineconsole.plugin.IntentSpec chosen = discovered.get(which2);
+                                    String json = chosen.toJson().toString();
+                                    currentIntentJson = json;
+                                    ((RadioButton) findViewById(R.id.aliasTypeIntent)).setChecked(true);
+                                    aliasEditIntentButton.setVisibility(View.VISIBLE);
+                                    aliasIntentSummary.setVisibility(View.VISIBLE);
+                                    aliasIntentSummary.setText(json);
+                                } catch (org.json.JSONException e) { e.printStackTrace(); }
+                            })
+                            .setNegativeButton(android.R.string.cancel, null)
+                            .show();
+                });
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }).start();
+    }
+
+    private void showActivitySearchDialog() {
+        final EditText input = new EditText(this);
+        input.setHint("Search activities (label or class name)");
+        new AlertDialog.Builder(this)
+                .setTitle("Search activities")
+                .setView(input)
+                .setPositiveButton(android.R.string.ok, (d, w) -> {
+                    final String q = input.getText().toString().trim().toLowerCase();
+                    if (q.isEmpty()) return;
                     new Thread(() -> {
                         try {
-                            android.content.pm.PackageManager pm = getPackageManager();
-                            String pkg = selComp.contains("/") ? selComp.split("/")[0] : selComp;
-                            String cls = selComp.contains("/") ? selComp.split("/")[1] : null;
-
-                            final List<net.nhiroki.bluelineconsole.plugin.IntentSpec> discovered = new ArrayList<>();
-
-                            List<String> actionsList = new ArrayList<>();
-                            // Common Android actions
-                            actionsList.add(android.content.Intent.ACTION_MAIN);
-                            actionsList.add(android.content.Intent.ACTION_VIEW);
-                            actionsList.add(android.content.Intent.ACTION_SEND);
-                            actionsList.add(android.content.Intent.ACTION_SENDTO);
-                            actionsList.add(android.content.Intent.ACTION_EDIT);
-                            actionsList.add(android.content.Intent.ACTION_PICK);
-                            actionsList.add(android.content.Intent.ACTION_SEARCH);
-                            actionsList.add(android.content.Intent.ACTION_DIAL);
-                            actionsList.add(android.content.Intent.ACTION_CALL);
-                            actionsList.add(android.content.Intent.ACTION_OPEN_DOCUMENT);
-
-                            // Heuristics: package-specific action patterns
-                            String pkgPref = pkg;
-                            if (pkgPref != null && !pkgPref.isEmpty()) {
-                                actionsList.add(pkgPref + ".ACTION_OPEN");
-                                actionsList.add(pkgPref + ".ACTION_OPEN_FOLDER");
-                                actionsList.add(pkgPref + ".ACTION_VIEW");
-                                actionsList.add(pkgPref + ".VIEW");
-                                actionsList.add(pkgPref + ".action.OPEN");
-                                actionsList.add(pkgPref + ".action.VIEW");
-                                if (cls != null && !cls.isEmpty()) {
-                                    String simpleCls = cls.contains(".") ? cls.substring(cls.lastIndexOf('.')+1) : cls;
-                                    actionsList.add(pkgPref + "." + simpleCls + ".ACTION");
-                                    actionsList.add(pkgPref + "." + simpleCls + ".VIEW");
-                                }
-                            }
-
-                            // Attempt to parse pm dump for exact intent-filters (may require shell permissions)
-                            List<String> pmActions = parsePmDumpForActions(pkg);
-                            if (pmActions != null && !pmActions.isEmpty()) {
-                                // prepend pmActions to the list so exact actions are tried first
-                                List<String> merged = new ArrayList<>();
-                                merged.addAll(pmActions);
-                                merged.addAll(actionsList);
-                                actionsList = merged;
-                            }
-
-                            // Deduplicate while preserving order
-                            Set<String> seen = new HashSet<>();
-                            List<String> finalActions = new ArrayList<>();
-                            for (String a : actionsList) {
-                                if (a != null && !a.isEmpty() && !seen.contains(a)) { seen.add(a); finalActions.add(a); }
-                            }
-
-                            String[] mimes = new String[]{null, "text/plain", "image/*", "video/*", "audio/*", "*/*"};
-
-                            for (String action : finalActions) {
-                                for (String mime : mimes) {
-                                    Intent test = new Intent();
-                                    if (action != null) test.setAction(action);
-                                    if (mime != null) test.setType(mime);
-                                    if (cls != null) test.setClassName(pkg, cls);
-
-                                    List<android.content.pm.ResolveInfo> ris = pm.queryIntentActivities(test, 0);
-                                    boolean matches = false;
-                                    if (ris != null) {
-                                        for (android.content.pm.ResolveInfo ri : ris) {
-                                            if (ri.activityInfo != null && ri.activityInfo.packageName != null && ri.activityInfo.packageName.equals(pkg)) {
-                                                if (cls == null || ri.activityInfo.name.equals(cls)) {
-                                                    matches = true;
-                                                    break;
-                                                }
-                                            }
-                                        }
-                                    }
-
-                                    if (matches) {
-                                        net.nhiroki.bluelineconsole.plugin.IntentSpec spec = new net.nhiroki.bluelineconsole.plugin.IntentSpec();
-                                        spec.componentPackage = selComp;
-                                        spec.action = action;
-                                        spec.mimeType = mime;
-                                        discovered.add(spec);
+                            PackageManager pm = getPackageManager();
+                            List<android.content.pm.PackageInfo> pkgs = pm.getInstalledPackages(PackageManager.GET_ACTIVITIES);
+                            final List<String> labels = new ArrayList<>();
+                            final List<String> comps = new ArrayList<>();
+                            for (android.content.pm.PackageInfo pi : pkgs) {
+                                if (pi.activities == null) continue;
+                                for (ActivityInfo ai : pi.activities) {
+                                    if (!ai.exported) continue;
+                                    String lbl;
+                                    try { lbl = ai.loadLabel(pm).toString(); } catch (Exception e) { lbl = null; }
+                                    String name = ai.name == null ? "" : ai.name;
+                                    if ((lbl != null && lbl.toLowerCase().contains(q)) || name.toLowerCase().contains(q)) {
+                                        labels.add((lbl != null ? lbl : name) + "\n" + pi.packageName + "/" + name);
+                                        comps.add(pi.packageName + "/" + name);
+                                        if (labels.size() >= 200) break;
                                     }
                                 }
+                                if (labels.size() >= 200) break;
                             }
 
-                            // Post results to UI thread
                             runOnUiThread(() -> {
-                                if (discovered.isEmpty()) {
-                                    // fallback: create simple ACTION_MAIN spec
-                                    try {
-                                        net.nhiroki.bluelineconsole.plugin.IntentSpec spec = new net.nhiroki.bluelineconsole.plugin.IntentSpec();
-                                        spec.componentPackage = selComp;
-                                        spec.action = android.content.Intent.ACTION_MAIN;
-                                        String json = spec.toJson().toString();
-                                        currentIntentJson = json;
-                                        ((RadioButton) findViewById(R.id.aliasTypeIntent)).setChecked(true);
-                                        aliasEditIntentButton.setVisibility(View.VISIBLE);
-                                        aliasIntentSummary.setVisibility(View.VISIBLE);
-                                        aliasIntentSummary.setText(json);
-                                    } catch (org.json.JSONException e) { e.printStackTrace(); }
+                                if (labels.isEmpty()) {
+                                    Toast.makeText(PreferencesAliasesEachActivity.this, "No activities found", Toast.LENGTH_SHORT).show();
                                     return;
                                 }
-
-                                // Show a chooser dialog of discovered intents
-                                CharSequence[] labels = new CharSequence[discovered.size()];
-                                for (int i = 0; i < discovered.size(); i++) {
-                                    net.nhiroki.bluelineconsole.plugin.IntentSpec s = discovered.get(i);
-                                    String lbl = (s.action == null ? "(no action)" : s.action) + (s.mimeType == null ? "" : " — " + s.mimeType);
-                                    labels[i] = lbl;
-                                }
-
+                                CharSequence[] items = labels.toArray(new CharSequence[0]);
                                 new AlertDialog.Builder(PreferencesAliasesEachActivity.this)
-                                        .setTitle(R.string.alias_picker_title)
-                                        .setItems(labels, (d2, which2) -> {
-                                            try {
-                                                net.nhiroki.bluelineconsole.plugin.IntentSpec chosen = discovered.get(which2);
-                                                String json = chosen.toJson().toString();
-                                                currentIntentJson = json;
-                                                ((RadioButton) findViewById(R.id.aliasTypeIntent)).setChecked(true);
-                                                aliasEditIntentButton.setVisibility(View.VISIBLE);
-                                                aliasIntentSummary.setVisibility(View.VISIBLE);
-                                                aliasIntentSummary.setText(json);
-                                            } catch (org.json.JSONException e) { e.printStackTrace(); }
+                                        .setTitle("Search results")
+                                        .setItems(items, (dlg, which) -> {
+                                            String comp = comps.get(which);
+                                            targetEdit.setText(comp);
+                                            if (useAppIcon) {
+                                                String pkg = comp.contains("/") ? comp.split("/")[0] : comp;
+                                                updateIconPreviewForPackage(pkg);
+                                            }
+                                            startDiscoveryForComponent(comp);
                                         })
                                         .setNegativeButton(android.R.string.cancel, null)
                                         .show();

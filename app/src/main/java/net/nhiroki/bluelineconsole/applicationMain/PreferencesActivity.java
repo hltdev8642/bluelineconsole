@@ -180,26 +180,86 @@ public class PreferencesActivity extends BaseWindowActivity {
 
     private boolean writePreferencesToUri(Uri uri) {
         try {
-            Map<String, ?> allPreferences = PreferenceManager.getDefaultSharedPreferences(this).getAll();
-            JSONObject jsonObject = new JSONObject();
-            for (Map.Entry<String, ?> entry : allPreferences.entrySet()) {
-                Object value = entry.getValue();
-                if (value instanceof Set) {
-                    JSONArray jsonArray = new JSONArray();
-                    for (Object setItem : (Set<?>) value) {
-                        jsonArray.put(setItem == null ? "" : setItem.toString());
-                    }
-                    jsonObject.put(entry.getKey(), jsonArray);
-                } else {
-                    jsonObject.put(entry.getKey(), value);
-                }
-            }
+            JSONObject root = new JSONObject();
 
+            // 1) Default shared preferences (androidx)
+            try {
+                android.content.SharedPreferences def = androidx.preference.PreferenceManager.getDefaultSharedPreferences(this);
+                Map<String, ?> allPreferences = def.getAll();
+                JSONObject jsonObject = new JSONObject();
+                for (Map.Entry<String, ?> entry : allPreferences.entrySet()) {
+                    Object value = entry.getValue();
+                    if (value instanceof Set) {
+                        JSONArray jsonArray = new JSONArray();
+                        for (Object setItem : (Set<?>) value) {
+                            jsonArray.put(setItem == null ? "" : setItem.toString());
+                        }
+                        jsonObject.put(entry.getKey(), jsonArray);
+                    } else {
+                        jsonObject.put(entry.getKey(), value);
+                    }
+                }
+                root.put("default_preferences", jsonObject);
+            } catch (Exception ignored) {}
+
+            // 2) PreferenceFragment's SharedPreferences (may be same as default, but include to be safe)
+            try {
+                android.content.SharedPreferences fragPrefs = null;
+                if (this.preferenceFragment != null && this.preferenceFragment.getPreferenceManager() != null) {
+                    fragPrefs = this.preferenceFragment.getPreferenceManager().getSharedPreferences();
+                }
+                if (fragPrefs != null) {
+                    Map<String, ?> allPreferences = fragPrefs.getAll();
+                    JSONObject jsonObject = new JSONObject();
+                    for (Map.Entry<String, ?> entry : allPreferences.entrySet()) {
+                        Object value = entry.getValue();
+                        if (value instanceof Set) {
+                            JSONArray jsonArray = new JSONArray();
+                            for (Object setItem : (Set<?>) value) {
+                                jsonArray.put(setItem == null ? "" : setItem.toString());
+                            }
+                            jsonObject.put(entry.getKey(), jsonArray);
+                        } else {
+                            jsonObject.put(entry.getKey(), value);
+                        }
+                    }
+                    root.put("fragment_preferences", jsonObject);
+                }
+            } catch (Exception ignored) {}
+
+            // 3) Known named preference files used by app
+            try {
+                String[] known = new String[]{"blc_aliases", "blc_system_commands", "blc_usage_tracker"};
+                for (String name : known) {
+                    android.content.SharedPreferences sp = this.getSharedPreferences(name, MODE_PRIVATE);
+                    if (sp != null) {
+                        Map<String, ?> all = sp.getAll();
+                        if (all != null && !all.isEmpty()) {
+                            JSONObject jo = new JSONObject();
+                            for (Map.Entry<String, ?> entry : all.entrySet()) {
+                                Object value = entry.getValue();
+                                if (value instanceof Set) {
+                                    JSONArray jsonArray = new JSONArray();
+                                    for (Object setItem : (Set<?>) value) {
+                                        jsonArray.put(setItem == null ? "" : setItem.toString());
+                                    }
+                                    jo.put(entry.getKey(), jsonArray);
+                                } else {
+                                    jo.put(entry.getKey(), value);
+                                }
+                            }
+                            root.put(name, jo);
+                        }
+                    }
+                }
+            } catch (Exception ignored) {}
+
+            // write out
             try (OutputStream outputStream = getContentResolver().openOutputStream(uri)) {
                 if (outputStream == null) {
                     return false;
                 }
-                outputStream.write(jsonObject.toString().getBytes(StandardCharsets.UTF_8));
+                outputStream.write(root.toString(2).getBytes(StandardCharsets.UTF_8));
             }
             return true;
         } catch (Exception exception) {
