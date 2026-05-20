@@ -103,8 +103,9 @@ public class PreferencesFragment extends PreferenceFragmentCompat {
                 intent.setType("application/json");
                 intent.putExtra(Intent.EXTRA_TITLE, "bluelineconsole_settings.json");
                 try {
-                    ((PreferencesActivity) PreferencesFragment.this.getActivity()).setComingBackFlag();
-                    PreferencesFragment.this.startActivityForResult(intent, PreferencesActivity.PREF_EXPORT_REQUEST_CODE);
+                    PreferencesActivity act = (PreferencesActivity) PreferencesFragment.this.getActivity();
+                    act.setComingBackFlag();
+                    act.startActivityForResult(intent, PreferencesActivity.PREF_EXPORT_REQUEST_CODE);
                     return true;
                 } catch (Exception exception) {
                     exception.printStackTrace();
@@ -119,8 +120,9 @@ public class PreferencesFragment extends PreferenceFragmentCompat {
                 intent.setType("application/json");
                 intent.addCategory(Intent.CATEGORY_OPENABLE);
                 try {
-                    ((PreferencesActivity) PreferencesFragment.this.getActivity()).setComingBackFlag();
-                    PreferencesFragment.this.startActivityForResult(intent, PreferencesActivity.PREF_IMPORT_REQUEST_CODE);
+                    PreferencesActivity act = (PreferencesActivity) PreferencesFragment.this.getActivity();
+                    act.setComingBackFlag();
+                    act.startActivityForResult(intent, PreferencesActivity.PREF_IMPORT_REQUEST_CODE);
                     return true;
                 } catch (Exception exception) {
                     exception.printStackTrace();
