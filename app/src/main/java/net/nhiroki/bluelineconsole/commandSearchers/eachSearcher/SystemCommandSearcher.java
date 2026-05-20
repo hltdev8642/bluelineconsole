@@ -473,7 +473,7 @@ public class SystemCommandSearcher implements CommandSearcher {
             GradientDrawable bg = new GradientDrawable();
             bg.setCornerRadius(12 * dp);
             TypedValue tv = new TypedValue();
-            if (activity.getTheme().resolveAttribute(R.attr.bluelineconsoleSecondaryWindowBackground, tv, true)) {
+            if (activity.getTheme().resolveAttribute(R.attr.bluelineconsoleBackgroundColorOfCommand, tv, true)) {
                 bg.setColor(tv.data);
             } else {
                 bg.setColor(0x22888888);
